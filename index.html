@@ -224,6 +224,23 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
 .cfgrow:last-child{border-bottom:0}
 .cfgrow{display:flex;align-items:center;gap:8px;padding:8px 2px;border-bottom:1px solid var(--line)}
 .cfgrow input{flex:1;min-width:0}
+.vers{display:flex;flex-wrap:wrap;gap:8px 26px;margin-bottom:14px;font-size:13px;color:var(--soft)}
+.vers b{display:block;font-family:"Fraunces",Georgia,serif;font-variation-settings:"opsz" 100,"wght" 500;font-size:22px;color:var(--ink);font-weight:normal;line-height:1.1}
+.chlog{margin-bottom:16px;font-size:13px}
+.chlog summary{cursor:pointer;color:var(--soft)}
+.chlog .cv{margin:10px 0 0}
+.chlog .cv h4{margin:0;font-size:13px;font-weight:600}
+.chlog .cv h4 span{font-family:"IBM Plex Mono",monospace;font-weight:400;font-size:11px;color:var(--soft);margin-left:6px}
+.chlog ul{margin:3px 0 0;padding-left:18px;color:var(--ink)}
+.jlist{border-top:1px solid var(--line);border-bottom:2px solid var(--ink);margin-bottom:12px}
+.jgrp{padding:9px 2px 7px;border-bottom:1px solid var(--line)}
+.jgrp:last-child{border-bottom:0}
+.jgrp h4{margin:0 0 3px;font-size:12px;font-family:"IBM Plex Mono",monospace;font-weight:500;color:var(--soft);letter-spacing:.02em}
+.jgrp.att h4{color:var(--brass)}
+.jgrp ul{list-style:none;margin:0;padding:0}
+.jgrp li{display:flex;gap:10px;font-size:13px;line-height:1.4;padding:2px 0}
+.jgrp li time{flex:0 0 auto;font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--soft);padding-top:2px;min-width:72px}
+.jvide{padding:12px 2px;font-size:13px;color:var(--soft)}
 .cfgrow .used{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--soft);flex:0 0 auto;min-width:16px;text-align:right}
 
 dialog{border:1px solid var(--ink);border-radius:var(--r);padding:0;background:var(--card);color:var(--ink);width:min(620px,94vw);max-height:90vh}
@@ -432,11 +449,20 @@ textarea{resize:vertical;min-height:64px;line-height:1.45}
         <div class="field"><label for="cfg-file">Fichier</label><input type="text" id="cfg-file"></div>
       </div>
     </div>
+    <div class="panel">
+      <h2>Version et journal</h2>
+      <p class="sub">La version de l'application change quand le code évolue ; la révision des données avance d'un cran à chaque publication. Le journal garde la trace de chaque modification, regroupée par publication.</p>
+      <div class="vers" id="vers"></div>
+      <details class="chlog"><summary>Historique des versions</summary><div id="chlog"></div></details>
+      <div class="jlist" id="journal"></div>
+      <button class="btn btn-sm" id="journal-plus" hidden>Tout afficher</button>
+    </div>
   </section>
 
   <footer class="foot">
     <span class="devise">Tenu au fil des tables, en Alsace et alentours.</span>
     <span class="chiffres" id="foot-chiffres"></span>
+    <span class="chiffres" id="foot-version"></span>
   </footer>
 </div>
 
@@ -508,13 +534,29 @@ let CFG = {
 };
 
 let STYLES = [
- "Bistronomie",
+ "Française contemporaine",
  "Cuisine d'auteur",
- "Classique bourgeois",
- "Gastronomique contemporain",
- "Alsacien",
+ "Bistronomie",
+ "Tradition française",
+ "Alsace revisitée",
+ "Winstub & auberge",
  "Italien",
- "Japonais"
+ "Japonais",
+ "Cuisines du monde",
+ "Sur le pouce"
+];
+
+let REV = {
+ "n": 1,
+ "date": "2026-11-24T08:50"
+};
+
+let JOURNAL = [
+ {
+  "d": "2026-11-24T08:50",
+  "rev": 1,
+  "m": "Nouvelle classification des styles : 10 familles, 58 tables reclassées"
+ }
 ];
 
 let RESTOS = [
@@ -524,7 +566,7 @@ let RESTOS = [
   "commune": "Kaysersberg",
   "la": 48.1394,
   "lo": 7.2647,
-  "style": "Gastronomique contemporain",
+  "style": "Alsace revisitée",
   "gamme": "€€€€",
   "distinction": "2 étoiles",
   "note": 10,
@@ -573,7 +615,7 @@ let RESTOS = [
   "commune": "Wingen-sur-Moder",
   "la": 48.9185,
   "lo": 7.3647,
-  "style": "Gastronomique contemporain",
+  "style": "Française contemporaine",
   "gamme": "€€€€",
   "distinction": "2 étoiles",
   "note": 10,
@@ -664,7 +706,7 @@ let RESTOS = [
   "commune": "La Wantzenau",
   "la": 48.6636,
   "lo": 7.8264,
-  "style": "Gastronomique contemporain",
+  "style": "Française contemporaine",
   "gamme": "€€€",
   "distinction": "—",
   "note": 7,
@@ -686,7 +728,7 @@ let RESTOS = [
   "commune": "Haguenau",
   "la": 48.8107,
   "lo": 7.7917,
-  "style": "Classique bourgeois",
+  "style": "Tradition française",
   "gamme": "€€€",
   "distinction": "Bib Gourmand",
   "note": 8,
@@ -708,7 +750,7 @@ let RESTOS = [
   "commune": "Stutzheim-Offenheim",
   "la": 48.6289,
   "lo": 7.6403,
-  "style": "Alsacien",
+  "style": "Winstub & auberge",
   "gamme": "€€",
   "distinction": "—",
   "note": 5,
@@ -730,7 +772,7 @@ let RESTOS = [
   "commune": "Lembach",
   "la": 49.0031,
   "lo": 7.7906,
-  "style": "Gastronomique contemporain",
+  "style": "Française contemporaine",
   "gamme": "€€€€",
   "distinction": "1 étoile",
   "note": 7,
@@ -752,7 +794,7 @@ let RESTOS = [
   "commune": "Gundershoffen",
   "la": 48.9066,
   "lo": 7.6588,
-  "style": "Alsacien",
+  "style": "Alsace revisitée",
   "gamme": "€€€",
   "distinction": "—",
   "note": 5,
@@ -774,7 +816,7 @@ let RESTOS = [
   "commune": "Laubach",
   "la": 48.88,
   "lo": 7.7224,
-  "style": "Gastronomique contemporain",
+  "style": "Française contemporaine",
   "gamme": "€€€€",
   "distinction": "2 étoiles",
   "note": 3,
@@ -796,7 +838,7 @@ let RESTOS = [
   "commune": "Niederschaeffolsheim",
   "la": 48.7724,
   "lo": 7.7343,
-  "style": "Classique bourgeois",
+  "style": "Tradition française",
   "gamme": "€€€",
   "distinction": "—",
   "note": 4,
@@ -840,7 +882,7 @@ let RESTOS = [
   "commune": "Marlenheim",
   "la": 48.621,
   "lo": 7.4936,
-  "style": "Gastronomique contemporain",
+  "style": "Française contemporaine",
   "gamme": "€€€€",
   "distinction": "1 étoile",
   "note": 3,
@@ -938,7 +980,7 @@ let RESTOS = [
   "commune": "Riquewihr",
   "la": 48.1667,
   "lo": 7.2978,
-  "style": "Cuisine d'auteur",
+  "style": "Française contemporaine",
   "gamme": "€€€€",
   "distinction": "1 étoile",
   "note": null,
@@ -956,7 +998,7 @@ let RESTOS = [
   "commune": "Graufthal",
   "la": 48.8212,
   "lo": 7.2815,
-  "style": "Classique bourgeois",
+  "style": "Tradition française",
   "gamme": "€€€€",
   "distinction": "—",
   "note": 5,
@@ -1135,7 +1177,7 @@ let RESTOS = [
   "lo": 7.85546,
   "nom": "Au Vieux Moulin",
   "commune": "Bischwiller",
-  "style": "Alsacien",
+  "style": "Winstub & auberge",
   "gamme": "€",
   "distinction": "—",
   "note": 5,
@@ -1179,7 +1221,7 @@ let RESTOS = [
   "lo": 7.70156,
   "nom": "Les pots cassés",
   "commune": "Wintershouse",
-  "style": "Alsacien",
+  "style": "Winstub & auberge",
   "gamme": "€",
   "distinction": "—",
   "note": 4,
@@ -1201,7 +1243,7 @@ let RESTOS = [
   "lo": 7.3626,
   "nom": "El ceviche",
   "commune": "Saverne",
-  "style": "Bistronomie",
+  "style": "Cuisines du monde",
   "gamme": "€€€",
   "distinction": "—",
   "note": 6,
@@ -1245,7 +1287,7 @@ let RESTOS = [
   "lo": 7.39772,
   "nom": "Restaurant Käsbur",
   "commune": "Monswiller",
-  "style": "Gastronomique contemporain",
+  "style": "Française contemporaine",
   "gamme": "€€€",
   "distinction": "1 étoile",
   "note": null,
@@ -1263,7 +1305,7 @@ let RESTOS = [
   "lo": 7.82519,
   "nom": "Le Jardin Secret",
   "commune": "La Wantzenau",
-  "style": "Cuisine d'auteur",
+  "style": "Française contemporaine",
   "gamme": "€€€€",
   "distinction": "1 étoile",
   "note": null,
@@ -1281,7 +1323,7 @@ let RESTOS = [
   "lo": 7.34866,
   "nom": "Restaurant La Garenne",
   "commune": "Saverne",
-  "style": "Classique bourgeois",
+  "style": "Tradition française",
   "gamme": "€€€",
   "distinction": "—",
   "note": 7,
@@ -1303,7 +1345,7 @@ let RESTOS = [
   "lo": 7.65775,
   "nom": "Auberge du Landeck",
   "commune": "Wittersheim",
-  "style": "Alsacien",
+  "style": "Winstub & auberge",
   "gamme": "€",
   "distinction": "—",
   "note": 2,
@@ -1325,7 +1367,7 @@ let RESTOS = [
   "lo": 7.6895,
   "nom": "S 'Bronne Stuebel",
   "commune": "Bernolsheim",
-  "style": "Alsacien",
+  "style": "Winstub & auberge",
   "gamme": "€€",
   "distinction": "—",
   "note": 4,
@@ -1347,7 +1389,7 @@ let RESTOS = [
   "lo": 7.73848,
   "nom": "la fleur d'or",
   "commune": "Niederschaeffolsheim",
-  "style": "Alsacien",
+  "style": "Winstub & auberge",
   "gamme": "€€",
   "distinction": "—",
   "note": 5,
@@ -1369,7 +1411,7 @@ let RESTOS = [
   "lo": 7.64079,
   "nom": "Au lion rouge",
   "commune": "Huttendorf",
-  "style": "Alsacien",
+  "style": "Winstub & auberge",
   "gamme": "€",
   "distinction": "—",
   "note": 1,
@@ -1391,7 +1433,7 @@ let RESTOS = [
   "lo": 7.68913,
   "nom": "Boeuf et Cie",
   "commune": "Bernolsheim",
-  "style": "Alsacien",
+  "style": "Winstub & auberge",
   "gamme": "€",
   "distinction": "—",
   "note": 0,
@@ -1413,7 +1455,7 @@ let RESTOS = [
   "lo": 7.80029,
   "nom": "Auberge du Pont de la Zorn",
   "commune": "Weyersheim",
-  "style": "Alsacien",
+  "style": "Alsace revisitée",
   "gamme": "€€€",
   "distinction": "Bib Gourmand",
   "note": 8,
@@ -1503,7 +1545,7 @@ let RESTOS = [
   "lo": 7.78562,
   "nom": "L'Asparagus",
   "commune": "Hœrdt",
-  "style": "Classique bourgeois",
+  "style": "Tradition française",
   "gamme": "€€€",
   "distinction": "—",
   "note": null,
@@ -1544,7 +1586,7 @@ let RESTOS = [
   "lo": 7.73914,
   "nom": "Les Plaisirs Gourmands",
   "commune": "Schiltigheim",
-  "style": "Gastronomique contemporain",
+  "style": "Française contemporaine",
   "gamme": "€€€€",
   "distinction": "1 étoile",
   "note": 7,
@@ -1671,7 +1713,7 @@ let RESTOS = [
   "lo": 7.2461,
   "nom": "Auberge Chez Guth",
   "commune": "Steige",
-  "style": "Cuisine d'auteur",
+  "style": "Française contemporaine",
   "gamme": "€€€€",
   "distinction": "1 étoile",
   "note": null,
@@ -1689,7 +1731,7 @@ let RESTOS = [
   "lo": 7.94482,
   "nom": "Hôtel Restaurant Auberge du Gourmet",
   "commune": "Drusenheim",
-  "style": "Classique bourgeois",
+  "style": "Tradition française",
   "gamme": "€€€€",
   "distinction": "1 étoile",
   "note": null,
@@ -1724,7 +1766,7 @@ let RESTOS = [
   "lo": 7.44042,
   "nom": "Le silvergloeckel",
   "commune": "Westhoffen",
-  "style": "Alsacien",
+  "style": "Alsace revisitée",
   "gamme": "€€€",
   "distinction": "—",
   "note": null,
@@ -1764,7 +1806,7 @@ let RESTOS = [
   "lo": 7.65441,
   "nom": "Vintage Burger",
   "commune": "Mommenheim",
-  "style": "Bistronomie",
+  "style": "Sur le pouce",
   "gamme": "€",
   "distinction": "—",
   "note": 6,
@@ -1787,7 +1829,7 @@ let RESTOS = [
   "lo": null,
   "nom": "Kei kobayashi",
   "commune": "",
-  "style": "Japonais",
+  "style": "Française contemporaine",
   "gamme": "€€€",
   "distinction": "3 étoiles",
   "note": null,
@@ -1805,7 +1847,7 @@ let RESTOS = [
   "lo": 7.7922,
   "nom": "La Table D‘ Aur",
   "commune": "Haguenau",
-  "style": "Classique bourgeois",
+  "style": "Tradition française",
   "gamme": "€€",
   "distinction": "—",
   "note": 3,
@@ -1829,6 +1871,19 @@ const DISTINCTIONS = ["—","Bib Gourmand","Étoile verte","1 étoile","2 étoil
 const RANG = {"—":0,"Étoile verte":0,"Bib Gourmand":1,"1 étoile":2,"2 étoiles":3,"3 étoiles":4};
 const RANG_LAB = ["Sans distinction","Bib Gourmand","1 étoile","2 étoiles","3 étoiles"];
 const CRITERES = [{k:"cuisine",l:"Cuisine"},{k:"cadre",l:"Cadre"},{k:"service",l:"Service"},{k:"qp",l:"Rapport qualité-prix"}];
+/* ---------- version de l'application ----------
+   À incrémenter à chaque évolution du code, avec une ligne dans le journal des versions.
+   Distinct de REV, la révision des données, qui avance seule à chaque publication. */
+const APP_VERSION = "1.1";
+const VERSIONS = [
+  {v:"1.1", d:"2026-11-24", m:["Nouvelle classification des styles : la cuisine plutôt que le standing",
+     "Alsacien scindé en « Alsace revisitée » et « Winstub & auberge »",
+     "Numéro de version, révision des données et journal des modifications dans Réglages"]},
+  {v:"1.0", d:"2026-08-22", m:["Carnet de tables : liste, carte, statistiques, passages multiples",
+     "Sélecteur « On va où ? », bonus violette, publication via l'API GitHub"]}
+];
+const JOURNAL_MAX = 400;   // au-delà, les plus anciennes entrées sont oubliées
+
 const M_DEB = "/*" + " __DATA_DEBUT__ " + "*/";   // assemblés par morceaux : le fichier
 const M_FIN = "/*" + " __DATA_FIN__ " + "*/";     // ne contient qu'une seule vraie occurrence de chacun
 
@@ -1918,12 +1973,21 @@ function serialiser(){
   return M_DEB + "\n"
     + "let CFG = "    + j(CFG)    + ";\n\n"
     + "let STYLES = " + j(STYLES) + ";\n\n"
+    + "let REV = "    + j(REV)    + ";\n\n"
+    + "let JOURNAL = " + j(JOURNAL) + ";\n\n"
     + "let RESTOS = " + j(RESTOS) + ";\n"
     + M_FIN;
 }
 async function push(){
   if(!canEdit() || syncing) return;
   syncing=true; renderSync();
+  const revAvant = {...REV};
+  const enAttente = JOURNAL.filter(x=>x.rev==null);
+  const maintenant = horodatage();
+  REV = {n:(REV.n||0)+1, date:maintenant};
+  enAttente.forEach(x=>x.rev=REV.n);
+  if(!enAttente.length) JOURNAL.unshift({d:maintenant, rev:REV.n, m:"Publication sans modification notée"});
+  if(JOURNAL.length>JOURNAL_MAX) JOURNAL.length=JOURNAL_MAX;
   const url=`https://api.github.com/repos/${CFG.user}/${CFG.repo}/contents/${CFG.file}`;
   const h={Authorization:"token "+TOKEN, Accept:"application/vnd.github+json"};
   const bloc = serialiser();
@@ -1943,18 +2007,47 @@ async function push(){
       let bin=""; const CH=8192;
       for(let i=0;i<bytes.length;i+=CH) bin += String.fromCharCode.apply(null, bytes.subarray(i,i+CH));
       const res = await fetch(url,{method:"PUT",headers:{...h,"Content-Type":"application/json"},
-        body:JSON.stringify({message:"Mise à jour du carnet de tables",content:btoa(bin),sha:meta.sha})});
+        body:JSON.stringify({message:"Carnet de tables · révision "+REV.n,content:btoa(bin),sha:meta.sha})});
       if(res.status===409 && essai<2) continue;   // sha périmé : on relit et on retente
       if(!res.ok) throw new Error("écriture : HTTP "+res.status);
       envoye=true;
     }
     dirty=0; lastSync=new Date().toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"});
   }catch(e){
+    REV = revAvant;
+    JOURNAL = JOURNAL.filter(x=>!(x.rev===REV.n+1 && x.m==="Publication sans modification notée"));
+    enAttente.forEach(x=>x.rev=null);
     alert("Publication impossible.\n"+e.message+"\n\nVérifiez le jeton et les champs du dépôt dans Réglages.");
   }
   syncing=false; renderSync();
 }
-const touch = () => { dirty++; renderSync(); };
+const horodatage = () => { const d=new Date(), z=n=>String(n).padStart(2,"0");
+  return d.getFullYear()+"-"+z(d.getMonth()+1)+"-"+z(d.getDate())+"T"+z(d.getHours())+":"+z(d.getMinutes()); };
+/* chaque modification passe par touch, qui la note au journal (en attente jusqu'à la publication) */
+const touch = msg => {
+  dirty++;
+  if(msg) JOURNAL.unshift({d:horodatage(), rev:null, m:msg});
+  if(JOURNAL.length>JOURNAL_MAX) JOURNAL.length=JOURNAL_MAX;
+  renderSync();
+  if(tab==="reglages") renderJournal();
+};
+/* ce qui a changé dans une fiche, en clair */
+const LIB_CHAMPS = {nom:"nom",commune:"commune",style:"style",gamme:"gamme",distinction:"distinction",
+  note:"note",date:"date",prix:"ticket",format:"format",com:"commentaire",crit:"critères",
+  statut:"statut",violette:"bonus violette",envie:"envie"};
+const valTxt = (k,v) => v==null||v==="" ? "—" : k==="statut" ? (v==="afaire"?"à faire":"faite")
+  : k==="prix" ? v+" €" : k==="violette" ? (v?"oui":"non") : k==="envie" ? (ENVIE_LAB[v]||v) : String(v);
+function ecarts(avant, apres){
+  const out=[];
+  for(const k in LIB_CHAMPS){
+    const x=avant[k], y=apres[k];
+    if(JSON.stringify(x??null)===JSON.stringify(y??null)) continue;
+    if(k==="violette" && !x && !y) continue;
+    out.push(k==="com"||k==="crit" ? LIB_CHAMPS[k]+" modifié"+(k==="crit"?"s":"")
+      : LIB_CHAMPS[k]+" "+valTxt(k,x)+" → "+valTxt(k,y));
+  }
+  return out;
+}
 
 /* ---------- boutons de sélection ---------- */
 function chips(host, options, opts){
@@ -2023,7 +2116,7 @@ function visible(){
     });
 }
 /* drapeau de provenance : rattaché au style, ajouter une entrée suffit */
-const DRAPEAUX = {"Italien":{c:"it",l:"Italie"}, "Japonais":{c:"jp",l:"Japon"}, "Alsacien":{c:"al",l:"Alsace"}};
+const DRAPEAUX = {"Italien":{c:"it",l:"Italie"}, "Japonais":{c:"jp",l:"Japon"}, "Alsace revisitée":{c:"al",l:"Alsace"}, "Winstub & auberge":{c:"al",l:"Alsace"}};
 const FLAG = r => { const d=DRAPEAUX[r.style];
   return d ? `<span class="flag ${d.c}" title="${d.l}" role="img" aria-label="${d.l}"></span>` : ""; };
 
@@ -2426,7 +2519,36 @@ function renderStats(){
 }
 
 /* ---------- réglages ---------- */
+/* ---------- version et journal ---------- */
+const quand = d => d ? d.slice(8,10)+"/"+d.slice(5,7)+"/"+d.slice(0,4)+(d.length>10?" à "+d.slice(11,16):"") : "";
+let journalTout = false;
+function renderJournal(){
+  const att = JOURNAL.filter(x=>x.rev==null).length;
+  $("#vers").innerHTML =
+    `<span><b>v${esc(APP_VERSION)}</b>application</span>`
+  + `<span><b>n° ${REV.n||0}</b>révision des données${REV.date?", publiée le "+esc(quand(REV.date)):""}</span>`
+  + `<span><b>${att}</b>modification${att>1?"s":""} en attente</span>`;
+  $("#chlog").innerHTML = VERSIONS.map(v=>`<div class="cv"><h4>v${esc(v.v)}<span>${esc(quand(v.d))}</span></h4>
+    <ul>${v.m.map(x=>"<li>"+esc(x)+"</li>").join("")}</ul></div>`).join("");
+  const liste = journalTout ? JOURNAL : JOURNAL.slice(0,40);
+  const groupes = [];
+  for(const x of liste){
+    const g = groupes[groupes.length-1];
+    if(g && g.rev===x.rev) g.items.push(x); else groupes.push({rev:x.rev, items:[x]});
+  }
+  $("#journal").innerHTML = groupes.length ? groupes.map(g=>{
+    const titre = g.rev==null ? "En attente de publication"
+      : "Révision "+g.rev+(g.rev===REV.n && REV.date ? " · publiée le "+quand(REV.date) : "");
+    return `<div class="jgrp${g.rev==null?" att":""}"><h4>${esc(titre)}</h4><ul>${
+      g.items.map(x=>`<li><time>${esc(quand(x.d).replace(" à "," "))}</time><span>${esc(x.m)}</span></li>`).join("")
+    }</ul></div>`;
+  }).join("") : '<div class="jvide">Rien de noté pour l\'instant.</div>';
+  $("#journal-plus").hidden = journalTout || JOURNAL.length<=40;
+}
+$("#journal-plus").addEventListener("click", ()=>{ journalTout=true; renderJournal(); });
+
 function renderReglages(){
+  renderJournal();
   $("#cfg-styles").innerHTML = STYLES.map((v,i)=>{
     const used = RESTOS.filter(r=>r.style===v).length;
     return `<div class="cfgrow" data-i="${i}">
@@ -2448,16 +2570,16 @@ $("#view-reglages").addEventListener("click", e=>{
   if(!canEdit()) return;
   if(e.target.id==="add-style"){
     const n=prompt("Nouveau style :");
-    if(n && n.trim() && !STYLES.includes(n.trim())){ STYLES.push(n.trim()); initFiltres(); renderReglages(); touch(); }
+    if(n && n.trim() && !STYLES.includes(n.trim())){ STYLES.push(n.trim()); initFiltres(); renderReglages(); touch("Style ajouté : "+n.trim()); }
     return;
   }
   const row=e.target.closest(".cfgrow"); if(!row) return;
   const i=+row.dataset.i;
   if(e.target.dataset.mv){
     const j=i+ +e.target.dataset.mv;
-    [STYLES[i],STYLES[j]]=[STYLES[j],STYLES[i]]; initFiltres(); renderReglages(); touch();
+    [STYLES[i],STYLES[j]]=[STYLES[j],STYLES[i]]; initFiltres(); renderReglages(); touch("Ordre des styles : "+STYLES[j]+(e.target.dataset.mv<0?" monté":" descendu"));
   } else if(e.target.dataset.rm){
-    STYLES.splice(i,1); initFiltres(); renderReglages(); touch();
+    const supp=STYLES[i]; STYLES.splice(i,1); initFiltres(); renderReglages(); touch("Style supprimé : "+supp);
   }
 });
 $("#view-reglages").addEventListener("change", e=>{
@@ -2468,7 +2590,7 @@ $("#view-reglages").addEventListener("change", e=>{
     if(!nv || nv===old || STYLES.includes(nv)){ renderReglages(); return; }
     STYLES[i]=nv;
     RESTOS.forEach(r=>{ if(r.style===old) r.style=nv; });
-    initFiltres(); renderReglages(); touch();
+    initFiltres(); renderReglages(); touch("Style renommé : "+old+" → "+nv);
     return;
   }
   if(e.target.id==="cfg-base"){
@@ -2477,14 +2599,14 @@ $("#view-reglages").addEventListener("change", e=>{
     $("#cfg-base-co").textContent="recherche en cours…";
     localiser(nom).then(c=>{
       CFG.base = c ? {nom, la:c.la, lo:c.lo} : {nom, la:null, lo:null};
-      renderReglages(); touch();
+      renderReglages(); touch("Point de départ : "+nom);
     });
     return;
   }
   if(e.target.id==="cfg-user") CFG.user=e.target.value.trim();
   if(e.target.id==="cfg-repo") CFG.repo=e.target.value.trim();
   if(e.target.id==="cfg-file") CFG.file=e.target.value.trim();
-  renderSync(); touch();
+  renderSync(); touch("Dépôt GitHub : "+CFG.user+"/"+CFG.repo+"/"+CFG.file);
 });
 
 /* ---------- aides de saisie de la fiche ---------- */
@@ -2622,10 +2744,10 @@ $("#histo-liste").addEventListener("click", e=>{
   if(!b || !editing || !canEdit()) return;
   const v = trierVisites(visitesDe(editing));
   if(v.length<2) return;
-  v.splice(+b.dataset.vis, 1);
+  const retire = v.splice(+b.dataset.vis, 1)[0];
   editing.visites = v;
   projeter(editing);
-  touch(); renderList();
+  touch(editing.nom+" : passage du "+(jourFr(retire.date)||"?")+" retiré"); renderList();
   openSheet(editing.id);   // recharge la fiche : les champs plats viennent de changer
 });
 
@@ -2809,11 +2931,14 @@ $("#form").addEventListener("submit", async e=>{
     editing.statut="faite"; delete editing.envie;   // on ne va pas « à faire » une table qu'on vient de faire
     btn.disabled=false; btn.textContent="Enregistrer";
     modeVisite=false;
-    $("#sheet").close(); touch(); render();
+    $("#sheet").close();
+    touch(editing.nom+" : nouveau passage"+(v.date?" le "+jourFr(v.date):"")+(v.note!=null?", noté "+v.note:""));
+    render();
     return;
   }
 
   let cible;
+  const avant = editing ? JSON.parse(JSON.stringify(editing)) : null;
   if(editing){ Object.assign(editing,data); cible=editing; }
   else { cible={id:Math.max(0,...RESTOS.map(r=>r.id))+1, la:null, lo:null, ...data}; RESTOS.push(cible); }
   if(!cible.violette) delete cible.violette;   // on ne stocke le bonus que lorsqu'il est actif
@@ -2834,13 +2959,20 @@ $("#form").addEventListener("submit", async e=>{
     if(c){ cible.la=c.la; cible.lo=c.lo; }
   }
   btn.disabled=false; btn.textContent="Enregistrer";
-  $("#sheet").close(); touch(); render();
+  $("#sheet").close();
+  if(!avant) touch("Ajout : "+cible.nom+(cible.commune?" ("+cible.commune+")":"")+(cible.statut==="afaire"?", à faire":""));
+  else {
+    const d = ecarts(avant, cible);
+    if(d.length) touch(cible.nom+" : "+d.join(", "));
+    else if(acCoords.la || cible.la!==avant.la) touch(cible.nom+" : position mise à jour");
+  }
+  render();
 });
 $("#cancel").addEventListener("click", ()=>$("#sheet").close());
 $("#del").addEventListener("click", ()=>{
   if(editing && canEdit() && confirm(`Supprimer « ${editing.nom} » ?`)){
     RESTOS=RESTOS.filter(r=>r.id!==editing.id);
-    $("#sheet").close(); touch(); render();
+    $("#sheet").close(); touch("Suppression : "+editing.nom); render();
   }
 });
 
@@ -2895,6 +3027,7 @@ function render(){
   else if(tab==="reglages") renderReglages();
   else renderList();
 }
+$("#foot-version").textContent = "v"+APP_VERSION+" · révision "+(REV.n||0);
 initFiltres();
 chips("#m-filtre", [{v:"tout",l:"Toutes"},{v:"faite",l:"Faites"},{v:"afaire",l:"À faire"}], {value:"tout"});
 chips("#b-rayon", RAYONS, {value:"30"});
