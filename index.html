@@ -265,6 +265,19 @@ body.selection .row.sel::before{background:var(--garnet);border-color:var(--garn
 .mapbox{position:relative}
 .map-alerte{position:absolute;left:12px;right:12px;top:12px;z-index:800;background:var(--card);border:1px solid var(--ink);border-radius:var(--r);padding:10px 12px;font-size:13px;color:var(--soft)}
 .map-alerte strong{display:block;color:var(--ink);font-weight:600}
+.note.att{background:none;border-style:dashed;border-color:rgba(110,32,56,.45);color:var(--garnet);font-size:.92em}
+.rappels .relance .quand{font-family:"IBM Plex Mono",monospace;font-size:11.5px;min-width:86px;color:var(--soft)}
+.rappels .relance.du .quand{color:var(--garnet);font-weight:500}
+.rappels .relance .t{flex:1;min-width:0}
+.rappels .relance .t small{display:block;color:var(--soft);font-size:12.5px}
+.tab .alerte{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--garnet);margin-left:6px;vertical-align:2px}
+.row .bell{font-size:11.5px;color:var(--garnet);font-style:normal;font-family:"IBM Plex Mono",monospace}
+.bandeau-mich{display:block;width:100%;text-align:left;margin:0 0 14px;padding:10px 12px;border:1px solid var(--brass);border-left-width:4px;border-radius:var(--r);background:rgba(164,134,60,.08);font:inherit;font-size:13.5px;color:var(--ink);cursor:pointer}
+.bandeau-mich b{font-weight:600}
+.mich .trou .tm a{font-size:11.5px;color:var(--garnet)}
+.mich .trou .tm span{border-style:solid;color:var(--ink)}
+.coche{display:inline-flex;align-items:center;gap:6px;margin:4px 16px 4px 0;font-size:14px}
+.apercu{white-space:pre-wrap;font-family:"IBM Plex Mono",monospace;font-size:11.5px;line-height:1.5;background:var(--ground);border:1px solid var(--line);border-radius:var(--r);padding:10px 12px;max-height:220px;overflow:auto;margin:14px 0 0}
 .cfgrow .used{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--soft);flex:0 0 auto;min-width:16px;text-align:right}
 
 dialog{border:1px solid var(--ink);border-radius:var(--r);padding:0;background:var(--card);color:var(--ink);width:min(620px,94vw);max-height:90vh}
@@ -339,7 +352,7 @@ textarea{resize:vertical;min-height:64px;line-height:1.45}
 
   <div class="tabs" role="tablist">
     <button class="tab" role="tab" data-tab="faites" aria-selected="true">Tables <span class="count" id="c-faites"></span></button>
-    <button class="tab" role="tab" data-tab="afaire" aria-selected="false">À faire <span class="count" id="c-afaire"></span></button>
+    <button class="tab" role="tab" data-tab="afaire" aria-selected="false">À faire <span class="count" id="c-afaire"></span><span class="alerte" id="rap-alerte" hidden title="Rappel à traiter"></span></button>
     <button class="tab" role="tab" data-tab="carte" aria-selected="false">Carte</button>
     <button class="tab" role="tab" data-tab="stats" aria-selected="false">Statistiques</button>
     <button class="tab" role="tab" data-tab="reglages" aria-selected="false" id="tab-reglages" hidden>Réglages</button>
@@ -351,9 +364,11 @@ textarea{resize:vertical;min-height:64px;line-height:1.45}
       <button class="btn" id="togfiltres" aria-expanded="true">Filtres<span class="badge" id="nfiltres" hidden></span></button>
       <button class="btn btn-solid" id="add">+ Nouvelle table</button>
       <button class="btn btn-quiet" id="selmode" hidden>Sélection</button>
+      <button class="btn btn-quiet" id="partager">Partager</button>
       <button class="btn btn-quiet" id="csv">CSV</button>
     </div>
 
+    <button type="button" class="bandeau-mich" id="bandeau-mich" hidden></button>
     <div class="sortbar">
       <label for="tri">Trier</label>
       <select id="tri">
@@ -367,6 +382,12 @@ textarea{resize:vertical;min-height:64px;line-height:1.45}
         <option value="style:-1">Style, en ordre inverse</option>
       </select>
     </div>
+
+    <section class="panel rappels" id="rappels" hidden>
+      <h2>Rappels</h2>
+      <p class="sub">Les réservations à relancer, les plus urgentes en tête. Touchez une table pour ouvrir sa fiche ; « fait » efface le rappel.</p>
+      <div class="relances" id="rap-liste"></div>
+    </section>
 
     <section class="boussole" id="boussole" hidden>
       <h2>On va où ?</h2>
@@ -479,6 +500,12 @@ textarea{resize:vertical;min-height:64px;line-height:1.45}
       <div class="cfglist" id="cfg-styles"></div>
       <button class="btn btn-sm" id="add-style">+ Ajouter un style</button>
     </div>
+    <div class="panel" id="panel-michelin">
+      <h2>Guide Michelin</h2>
+      <p class="sub" id="mich-sub"></p>
+      <div class="jlist" id="mich-liste"></div>
+      <button class="btn btn-sm" id="mich-ok"></button>
+    </div>
     <div class="panel">
       <h2>Fiches à compléter</h2>
       <p class="sub">Ce qui manque sur vos fiches, les plus lacunaires d'abord. Touchez une table pour ouvrir sa fiche. Le commentaire n'est signalé que sur les tables faites.</p>
@@ -532,6 +559,27 @@ textarea{resize:vertical;min-height:64px;line-height:1.45}
   <button class="btn btn-sm" id="sel-fin">Terminer</button>
 </div>
 
+<dialog id="dlg-partage">
+  <form method="dialog" class="sheet" id="form-partage">
+    <h3>Partager une sélection</h3>
+    <div class="grid">
+      <div class="field full"><span class="lbl">Quoi</span><div class="chips" id="pt-quoi" data-value="top"></div>
+        <span class="hint" id="pt-compte"></span></div>
+      <div class="field full"><label for="pt-titre">Titre</label><input type="text" id="pt-titre"></div>
+      <div class="field full"><span class="lbl">Inclure</span>
+        <label class="coche"><input type="checkbox" id="pt-notes" checked> les notes</label>
+        <label class="coche"><input type="checkbox" id="pt-com"> les commentaires</label>
+        <span class="hint">Les commentaires sont décochés par défaut : ils sont parfois plus francs qu'on ne voudrait les partager.</span></div>
+    </div>
+    <pre class="apercu" id="pt-apercu"></pre>
+    <div class="actions">
+      <button type="button" class="btn" id="pt-fermer">Fermer</button>
+      <button type="button" class="btn" id="pt-page">Page à envoyer</button>
+      <button type="button" class="btn btn-solid" id="pt-texte">Partager le texte</button>
+    </div>
+  </form>
+</dialog>
+
 <dialog id="sheet">
   <form method="dialog" class="sheet" id="form">
     <h3 id="sheet-title">Nouvelle table</h3>
@@ -562,7 +610,10 @@ textarea{resize:vertical;min-height:64px;line-height:1.45}
       <div class="field full"><label for="f-com">Commentaire</label><textarea id="f-com" placeholder="Ce qui a marqué, en bien comme en mal."></textarea></div>
       <div class="field full"><span class="lbl">Statut</span><div class="chips" id="f-statut" data-value="faite"></div></div>
       <div class="field full" id="champ-envie" hidden><span class="lbl">Envie d'y aller</span><div class="chips" id="fr-envie" data-value="2"></div>
-        <span class="hint">Sert à classer les propositions du sélecteur « On va où ? ».</span></div>
+        <span class="hint">Sert à classer les propositions du sélecteur « On va où ? ».</span>
+        <span class="hint" id="att-detail"></span></div>
+      <div class="field"><label for="f-rappel">Rappel le</label><input type="date" id="f-rappel"></div>
+      <div class="field"><label for="f-rappel-msg">Pour</label><input type="text" id="f-rappel-msg" placeholder="Rappeler pour un désistement…"></div>
       <div class="field full" id="histo" hidden>
         <span class="lbl">Historique des passages</span>
         <svg id="histo-plot" viewBox="0 0 560 150" hidden></svg>
@@ -596,7 +647,8 @@ let CFG = {
   "nom": "Berstheim",
   "la": 48.7758,
   "lo": 7.6564
- }
+ },
+ "michelin": 2026
 };
 
 let STYLES = [
@@ -613,11 +665,16 @@ let STYLES = [
 ];
 
 let REV = {
- "n": 2,
- "date": "2026-11-24T08:56"
+ "n": 3,
+ "date": "2026-11-24T14:45"
 };
 
 let JOURNAL = [
+ {
+  "d": "2026-11-24T14:45",
+  "rev": 3,
+  "m": "Le Cygne : distinction — → Bib Gourmand (guide 2026) ; vérification Michelin de l'édition 2026 enregistrée"
+ },
  {
   "d": "2026-11-24T08:56",
   "rev": 2,
@@ -867,7 +924,7 @@ let RESTOS = [
   "lo": 7.6588,
   "style": "Alsace revisitée",
   "gamme": "€€€",
-  "distinction": "—",
+  "distinction": "Bib Gourmand",
   "note": 5,
   "date": "",
   "prix": 80,
@@ -1945,8 +2002,12 @@ const CRITERES = [{k:"cuisine",l:"Cuisine"},{k:"cadre",l:"Cadre"},{k:"service",l
 /* ---------- version de l'application ----------
    À incrémenter à chaque évolution du code, avec une ligne dans le journal des versions.
    Distinct de REV, la révision des données, qui avance seule à chaque publication. */
-const APP_VERSION = "1.3";
+const APP_VERSION = "1.4";
 const VERSIONS = [
+  {v:"1.4", d:"2026-11-24", m:["Tables à faire : note attendue, estimée d'après vos notes passées par style, gamme et distinction",
+     "Rappels de réservation datés, rassemblés en tête de l'onglet À faire",
+     "Vérification annuelle du guide Michelin : rappel à la sortie du guide et liste des distinctions à revoir",
+     "Partage d'une sélection, en texte ou en page à envoyer"]},
   {v:"1.3", d:"2026-11-24", m:["Réglages : fiches à compléter, avec mise en majuscule des noms en un geste",
      "Statistiques : moyenne par style, tables au-dessus ou en dessous de leur tranche de prix, évolution des notes",
      "Liste : mode sélection pour changer le style, le statut ou l'envie de plusieurs tables d'un coup",
@@ -2192,9 +2253,9 @@ const touch = msg => {
 /* ce qui a changé dans une fiche, en clair */
 const LIB_CHAMPS = {nom:"nom",commune:"commune",style:"style",gamme:"gamme",distinction:"distinction",
   note:"note",date:"date",prix:"ticket",format:"format",com:"commentaire",crit:"critères",
-  statut:"statut",violette:"bonus violette",envie:"envie"};
+  statut:"statut",violette:"bonus violette",envie:"envie",rappel:"rappel",rappelMsg:"motif du rappel"};
 const valTxt = (k,v) => v==null||v==="" ? "—" : k==="statut" ? (v==="afaire"?"à faire":"faite")
-  : k==="prix" ? v+" €" : k==="violette" ? (v?"oui":"non") : k==="envie" ? (ENVIE_LAB[v]||v) : String(v);
+  : k==="prix" ? v+" €" : k==="rappel" ? jourFr(v) : k==="violette" ? (v?"oui":"non") : k==="envie" ? (ENVIE_LAB[v]||v) : String(v);
 function ecarts(avant, apres){
   const out=[];
   for(const k in LIB_CHAMPS){
@@ -2268,7 +2329,10 @@ function visible(){
       let x=a[sortKey], y=b[sortKey];
       if(sortKey==="distinction"){ x=RANG[x]??0; y=RANG[y]??0; }
       else if(sortKey==="style"){ x=STYLES.indexOf(x); y=STYLES.indexOf(y); }
-      else if(sortKey==="note"){ x=x??-1; y=y??-1; }
+      else if(sortKey==="note"){
+        if(tab==="afaire"){ x=attendue(a); y=attendue(b); }
+        x=x??-1; y=y??-1;
+      }
       else { x=x??""; y=y??""; }
       return typeof x==="string" ? x.localeCompare(y,"fr")*sortDir : (x-y)*sortDir;
     });
@@ -2285,6 +2349,7 @@ const VIO = r => r.violette ? '<span class="vio" title="Bonus violette" aria-lab
 const sc = n => n==null ? "n0" : n>=9 ? "n4" : n>=7 ? "n3" : n>=5 ? "n2" : "n1";
 
 function updateCounts(){
+  majAlerteRappels();
   const faites = RESTOS.filter(r=>r.statut==="faite");
   const afaire = RESTOS.filter(r=>r.statut==="afaire");
   $("#c-faites").textContent = faites.length;
@@ -2296,13 +2361,16 @@ function updateCounts(){
     + (m!=null ? " · moyenne <b>"+m.toFixed(1).replace(".",",")+"</b>/10" : "");
 }
 function renderList(){
+  if(tab==="afaire") majAttendues();
   const rows=visible();
   $("#list").innerHTML = rows.length ? rows.map(r=>`
     <button class="row${selection&&selection.has(r.id)?" sel":""}" data-id="${r.id}">
-      <span class="c-nom"><span class="name">${esc(r.nom)}${FLAG(r)}${VIO(r)}</span><br><span class="place">${esc(r.commune)||"—"}${r.format?" · "+esc(r.format):""}</span></span>
+      <span class="c-nom"><span class="name">${esc(r.nom)}${FLAG(r)}${VIO(r)}</span><br><span class="place">${esc(r.commune)||"—"}${r.format?" · "+esc(r.format):""}${r.rappel?` · <i class="bell" title="${esc(r.rappelMsg||"Rappel")}">rappel ${jourFr(r.rappel).slice(0,5)}</i>`:""}</span></span>
       <span class="c-style"><span class="tag">${esc(r.style)}</span><span class="gamme">${esc(r.gamme)}</span></span>
       <span class="c-dist ${r.distinction==="—"?"none":""}">${esc(r.distinction)}</span>
-      <span class="c-note"><span class="note ${sc(r.note)}" title="${r.note==null?"Non notée":r.note+" sur 10"}">${r.note==null?"—":r.note}</span></span>
+      <span class="c-note">${r.statut==="afaire" && attendue(r)!=null
+        ? `<span class="note att" title="Note attendue : ${virgule(attendue(r))} sur 10, d'après vos tables du même style, de la même gamme et de la même distinction">≈${Math.round(attendue(r))}</span>`
+        : `<span class="note ${sc(r.note)}" title="${r.note==null?"Non notée":r.note+" sur 10"}">${r.note==null?"—":r.note}</span>`}</span>
     </button>`).join("")
     : `<div class="empty"><strong>Rien pour l'instant</strong>${tab==="afaire"?"Ajoutez les tables que vous voulez tester.":"Ajoutez votre première table."}</div>`;
   updateCounts();
@@ -2316,7 +2384,9 @@ function renderList(){
   $("#boussole").hidden = !enAttente;
   $("#revisites").hidden = !enAttente;
   if(enAttente) renderRevisites();
+  if(enAttente) renderRappels(); else $("#rappels").hidden = true;
   majSelbar();
+  majBandeauMichelin();
 }
 
 /* ---------- on va où ? ---------- */
@@ -2344,6 +2414,7 @@ function carteProp(x, rang, cls){
       <span>${esc(r.gamme)}</span>
       ${r.distinction!=="—" ? `<span>${esc(r.distinction)}</span>` : ""}
       <span class="env">envie : ${esc(ENVIE_LAB[x.e]||"volontiers")}</span>
+      ${attendue(r)!=null ? `<span>≈ ${virgule(attendue(r))}/10 attendu</span>` : ""}
     </span>
   </button>`;
 }
@@ -2367,6 +2438,7 @@ const tiersDeTete = liste => liste.slice(0, Math.max(1, Math.ceil(liste.length/3
 const tirer = liste => liste[Math.floor(Math.random()*liste.length)];
 
 function proposer(){
+  majAttendues();
   const tous = candidats();
   if(!tous.length) return aucunCandidat();
   /* on écarte le tirage précédent tant qu'il reste de quoi composer un trio */
@@ -2422,6 +2494,37 @@ $("#b-props").addEventListener("click", e=>{
 
 /* ---------- y retourner ---------- */
 const MOIS = 30.44*24*3600*1000;
+/* ---------- rappels ---------- */
+const aujourdhui = () => { const d=new Date(), z=n=>String(n).padStart(2,"0"); return d.getFullYear()+"-"+z(d.getMonth()+1)+"-"+z(d.getDate()); };
+const joursEntre = (a,b) => Math.round((Date.parse(b+"T12:00")-Date.parse(a+"T12:00"))/864e5);
+function renderRappels(){
+  const auj = aujourdhui();
+  const liste = RESTOS.filter(r=>r.rappel).sort((a,b)=>a.rappel.localeCompare(b.rappel));
+  $("#rappels").hidden = !liste.length;
+  $("#rap-liste").innerHTML = liste.map(r=>{
+    const j = joursEntre(auj, r.rappel);
+    const q = j<0 ? (j===-1?"hier":"depuis "+(-j)+" j") : j===0 ? "aujourd'hui" : j===1 ? "demain" : j<14 ? "dans "+j+" j" : "le "+jourFr(r.rappel);
+    return `<div class="relance${j<=0?" du":""}" data-id="${r.id}" role="button" tabindex="0">
+      <span class="quand">${q}</span>
+      <span class="t"><b>${esc(r.nom)}</b>${FLAG(r)}<small>${esc(r.rappelMsg||"Rappel")} · ${esc(r.commune||"")}</small></span>
+      ${canEdit()?`<button type="button" class="btn btn-sm btn-quiet" data-fait="${r.id}">fait</button>`:""}
+    </div>`;
+  }).join("");
+}
+function majAlerteRappels(){
+  const auj = aujourdhui();
+  $("#rap-alerte").hidden = !RESTOS.some(r=>r.rappel && r.rappel<=auj);
+}
+$("#rap-liste").addEventListener("click", e=>{
+  const f = e.target.closest("[data-fait]");
+  if(f){
+    const r = RESTOS.find(x=>x.id===+f.dataset.fait); if(!r || !canEdit()) return;
+    const motif = r.rappelMsg; delete r.rappel; delete r.rappelMsg;
+    touch(r.nom+" : rappel traité"+(motif?" ("+motif+")":"")); render(); return;
+  }
+  const l = e.target.closest(".relance"); if(l) openSheet(+l.dataset.id);
+});
+
 function renderRevisites(){
   const maintenant = Date.now();
   const rows = RESTOS
@@ -2762,6 +2865,78 @@ function renderStats(){
 }
 
 /* ---------- réglages ---------- */
+/* ---------- note attendue des tables à faire ----------
+   Modèle additif : moyenne générale + effet du style + effet de la gamme + effet de la distinction.
+   Chaque effet est rétréci vers zéro (comme s'il y avait K repas « moyens » de plus dans chaque groupe) :
+   un style vu une seule fois ne peut pas peser autant qu'un style vu dix fois. Ajustement par passes
+   successives, pour ne pas compter deux fois ce que style et gamme expliquent ensemble.            */
+const K_RETRECI = 3;
+let ATT = new Map();
+const rangDe = r => RANG_LAB[RANG[r.distinction]??0];
+function majAttendues(){
+  ATT = new Map();
+  const done = RESTOS.filter(r=>r.statut==="faite" && r.note!=null);
+  if(done.length<6) return;
+  const m = avg(done.map(r=>r.note));
+  const facteurs = [{k:"style", f:r=>r.style}, {k:"gamme", f:r=>r.gamme}, {k:"distinction", f:rangDe}];
+  const eff = {style:{}, gamme:{}, distinction:{}};
+  const pred = (r, sauf) => m + facteurs.reduce((s,x)=> s + (x.k===sauf ? 0 : (eff[x.k][x.f(r)]||0)), 0);
+  for(let passe=0; passe<6; passe++){
+    for(const x of facteurs){
+      const g = {};
+      done.forEach(r=>{ const c=x.f(r); (g[c] = g[c]||[]).push(r.note - pred(r, x.k)); });
+      eff[x.k] = {};
+      for(const c in g) eff[x.k][c] = g[c].reduce((s,v)=>s+v,0) / (g[c].length + K_RETRECI);
+    }
+  }
+  RESTOS.filter(r=>r.statut==="afaire").forEach(r=>{
+    const parts = facteurs.map(x=>({k:x.k, v:eff[x.k][x.f(r)]||0}));
+    ATT.set(r.id, {v:Math.max(0, Math.min(10, m + parts.reduce((s,p)=>s+p.v,0))), m, parts});
+  });
+}
+const attendue = r => ATT.has(r.id) ? ATT.get(r.id).v : null;
+const signe = v => (v>=0?"+":"−")+Math.abs(v).toFixed(1).replace(".",",");
+
+/* ---------- guide Michelin ----------
+   Le guide France paraît en mars. À partir du 15 mars, si l'édition de l'année n'a pas été
+   vérifiée, un bandeau le rappelle. La liste reprend les tables distinguées, celles dont le
+   commentaire parle de distinction, et les tables faites qui ont un profil de Bib Gourmand.  */
+const editionMichelin = () => { const d=new Date(); return (d.getMonth()>2 || (d.getMonth()===2 && d.getDate()>=15)) ? d.getFullYear() : d.getFullYear()-1; };
+const michelinAJour = () => (CFG.michelin||0) >= editionMichelin();
+function aVerifier(){
+  return RESTOS.filter(r=>r.distinction!=="—" || /distinction|michelin|étoil|bib/i.test(r.com||""))
+    .sort((a,b)=>(RANG[b.distinction]??0)-(RANG[a.distinction]??0) || a.nom.localeCompare(b.nom,"fr"));
+}
+function renderMichelin(){
+  const ed = editionMichelin(), liste = aVerifier();
+  $("#mich-sub").innerHTML = (michelinAJour()
+      ? `Édition <b>${CFG.michelin}</b> vérifiée. Prochain rappel à la sortie du guide ${ed+1}, mi-mars.`
+      : `L'édition <b>${ed}</b> est parue et n'a pas encore été vérifiée${CFG.michelin?` (dernière vérification : ${CFG.michelin})`:""}.`)
+    + ` Voici les ${liste.length} tables à revoir : touchez-en une pour corriger sa distinction, ou ouvrez sa page dans le guide.`;
+  $("#mich-liste").className = "jlist mich";
+  $("#mich-liste").innerHTML = liste.map(r=>`<div class="trou" data-id="${r.id}" role="button" tabindex="0">
+      <span class="tn">${esc(r.nom)}<small>${esc(r.commune||"")}</small></span>
+      <span class="tm"><span>${esc(r.distinction==="—"?"à vérifier":r.distinction)}</span>
+      <a href="https://www.google.com/search?q=${encodeURIComponent("guide michelin "+r.nom+" "+(r.commune||""))}" target="_blank" rel="noopener">guide ↗</a></span></div>`).join("");
+  $("#mich-ok").textContent = michelinAJour() ? "Édition "+CFG.michelin+" vérifiée ✓" : "J'ai vérifié l'édition "+ed;
+  $("#mich-ok").disabled = michelinAJour();
+}
+function majBandeauMichelin(){
+  const b = $("#bandeau-mich");
+  b.hidden = !canEdit() || michelinAJour();
+  if(!b.hidden) b.innerHTML = `<b>Le guide Michelin ${editionMichelin()} est paru.</b> ${aVerifier().length} tables à revoir dans Réglages →`;
+}
+$("#bandeau-mich").addEventListener("click", ()=>{ selectTab("reglages"); setTimeout(()=>$("#panel-michelin").scrollIntoView({behavior:"smooth"}),50); });
+$("#mich-liste").addEventListener("click", e=>{
+  if(e.target.closest("a")) return;
+  const t=e.target.closest(".trou"); if(t) openSheet(+t.dataset.id);
+});
+$("#mich-ok").addEventListener("click", ()=>{
+  if(!canEdit()) return;
+  CFG.michelin = editionMichelin();
+  touch("Vérification Michelin de l'édition "+CFG.michelin+" enregistrée"); render();
+});
+
 /* ---------- fiches à compléter ---------- */
 const TROUS = [
   {k:"commune",  l:"commune",     t:r=>!r.commune || /,|\d/.test(r.commune)},
@@ -2870,6 +3045,7 @@ $("#journal").addEventListener("click", async e=>{
 
 function renderReglages(){
   renderJournal();
+  renderMichelin();
   initTrous(); renderTrous();
   $("#cfg-styles").innerHTML = STYLES.map((v,i)=>{
     const used = RESTOS.filter(r=>r.style===v).length;
@@ -3120,6 +3296,13 @@ function openSheet(id){
   chips("#fr-violette", [{v:"",l:"Non"},{v:"1",l:"Oui"}], {value:r.violette?"1":"", disabled:ro});
   chips("#fr-envie", ENVIES, {value:String(envieDe(r)), disabled:ro});
   majChampEnvie();
+  majAttendues();
+  const at = editing && ATT.get(editing.id);
+  $("#att-detail").innerHTML = at
+    ? `Note attendue : <b>${virgule(at.v)}/10</b> — votre moyenne ${virgule(at.m)}, style ${signe(at.parts[0].v)}, gamme ${signe(at.parts[1].v)}, distinction ${signe(at.parts[2].v)}.`
+    : "";
+  $("#f-rappel").value = r.rappel || "";
+  $("#f-rappel-msg").value = r.rappelMsg || "";
   /* une fiche déjà notée ou déjà rangée dans une gamme ne se fait pas réécrire
      dans le dos : l'aide n'y propose qu'un « appliquer ». */
   noteManuelle   = editing ? r.note!=null  : false;
@@ -3235,7 +3418,9 @@ $("#form").addEventListener("submit", async e=>{
     date:$("#f-date").value, prix:$("#f-prix").value===""?null:+$("#f-prix").value,
     format:$("#f-format").value, com:$("#f-com").value.trim(), crit, statut:chipValue("#f-statut"),
     violette: chipValue("#fr-violette")==="1",
-    envie: chipValue("#f-statut")==="afaire" ? +chipValue("#fr-envie") : null
+    envie: chipValue("#f-statut")==="afaire" ? +chipValue("#fr-envie") : null,
+    rappel: $("#f-rappel").value || null,
+    rappelMsg: $("#f-rappel").value ? ($("#f-rappel-msg").value.trim() || null) : null
   };
   const btn=$("#save"); btn.disabled=true; btn.textContent="Enregistrement…";
 
@@ -3265,6 +3450,8 @@ $("#form").addEventListener("submit", async e=>{
   else { cible={id:Math.max(0,...RESTOS.map(r=>r.id))+1, la:null, lo:null, ...data}; RESTOS.push(cible); }
   if(!cible.violette) delete cible.violette;   // on ne stocke le bonus que lorsqu'il est actif
   if(cible.statut!=="afaire" || !cible.envie) delete cible.envie;
+  if(!cible.rappel){ delete cible.rappel; delete cible.rappelMsg; }
+  else if(!cible.rappelMsg) delete cible.rappelMsg;
   /* modifier une fiche à plusieurs passages doit corriger le passage le plus
      récent, pas seulement les champs plats qui en sont la copie */
   if(Array.isArray(cible.visites) && cible.visites.length){
@@ -3335,6 +3522,88 @@ $("#list").addEventListener("click", e=>{
   if(selection){ const id=+r.dataset.id; selection.has(id)?selection.delete(id):selection.add(id); r.classList.toggle("sel"); majSelbar(); return; }
   openSheet(+r.dataset.id);
 });
+/* ---------- partage d'une sélection ---------- */
+function choixPartage(){
+  const q = chipValue("#pt-quoi");
+  let liste;
+  if(q==="sel") liste = RESTOS.filter(r=>selection && selection.has(r.id));
+  else if(q==="liste") liste = visible();
+  else liste = RESTOS.filter(r=>r.statut==="faite" && r.note!=null).sort((a,b)=>b.note-a.note).slice(0,10);
+  return liste;
+}
+const TITRES_PARTAGE = {top:"Mes dix meilleures tables", liste:"Une sélection de tables", sel:"Une sélection de tables"};
+function texteDistinction(r){ return r.distinction && r.distinction!=="—" ? r.distinction : ""; }
+function texteDePartage(){
+  const l = choixPartage(), notes=$("#pt-notes").checked, com=$("#pt-com").checked;
+  return $("#pt-titre").value.trim() + "\n\n" + l.map((r,i)=>{
+    const det = [r.style, r.gamme!=="—"?r.gamme:"", texteDistinction(r)].filter(Boolean).join(" · ");
+    const n = notes ? (r.statut==="faite" && r.note!=null ? " — "+r.note+"/10" : " — à tester") : "";
+    return `${i+1}. ${r.nom}${r.commune?" ("+r.commune+")":""}${n}\n   ${det}` + (com && r.com ? `\n   « ${r.com} »` : "");
+  }).join("\n");
+}
+function pageDePartage(){
+  const l = choixPartage(), notes=$("#pt-notes").checked, com=$("#pt-com").checked, titre=$("#pt-titre").value.trim();
+  const items = l.map((r,i)=>`<li><div class="h"><span class="i">${i+1}</span><span class="n">${esc(r.nom)}</span>${
+      notes ? `<span class="s">${r.statut==="faite"&&r.note!=null ? r.note+"<small>/10</small>" : "<small>à tester</small>"}</span>` : ""}</div>
+    <div class="m">${esc([r.commune, r.style, r.gamme!=="—"?r.gamme:"", texteDistinction(r)].filter(Boolean).join(" · "))}</div>${
+      com && r.com ? `<p>« ${esc(r.com)} »</p>` : ""}</li>`).join("");
+  const date = new Date().toLocaleDateString("fr-FR",{day:"numeric",month:"long",year:"numeric"});
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${esc(titre)}</title><style>
+body{margin:0;background:#E7E8E1;color:#191D23;font:15px/1.5 Georgia,serif}
+main{max-width:640px;margin:0 auto;padding:34px 20px 60px}
+h1{font-size:32px;font-weight:500;letter-spacing:-.02em;margin:0 0 4px;line-height:1.05}
+.d{font:12px/1.4 ui-monospace,Menlo,monospace;color:#5A6068;margin:0 0 26px}
+ol{list-style:none;margin:0;padding:0;border-top:2px solid #191D23}
+li{padding:14px 2px;border-bottom:1px solid #CDCEC5}
+.h{display:flex;align-items:baseline;gap:10px}
+.i{font:12px ui-monospace,Menlo,monospace;color:#5A6068;width:20px}
+.n{flex:1;font-size:18px}
+.s{font:600 18px ui-monospace,Menlo,monospace;color:#6E2038}.s small{font-weight:400;font-size:11px;color:#5A6068}
+.m{margin-left:30px;font:13px system-ui,sans-serif;color:#5A6068}
+p{margin:6px 0 0 30px;font-style:italic;font-size:14px}
+</style></head><body><main><h1>${esc(titre)}</h1><p class="d">Carnet de tables · ${date}</p><ol>${items}</ol></main></body></html>`;
+}
+function majPartage(){
+  const l = choixPartage();
+  $("#pt-compte").textContent = l.length+" table"+(l.length>1?"s":"");
+  $("#pt-apercu").textContent = l.length ? texteDePartage() : "Rien à partager avec ce choix.";
+  ["#pt-texte","#pt-page"].forEach(h=>$(h).disabled=!l.length);
+}
+$("#partager").addEventListener("click", ()=>{
+  const opts=[{v:"top",l:"Mon top 10"},{v:"liste",l:"La liste affichée ("+visible().length+")"}];
+  if(selection && selection.size) opts.push({v:"sel",l:"La sélection ("+selection.size+")"});
+  const def = selection && selection.size ? "sel" : "top";
+  chips("#pt-quoi", opts, {value:def});
+  $("#pt-titre").value = TITRES_PARTAGE[def];
+  $("#pt-notes").disabled=false; $("#pt-com").disabled=false; $("#pt-titre").disabled=false;
+  majPartage();
+  $("#dlg-partage").showModal();
+});
+onChips("#pt-quoi", v=>{ $("#pt-titre").value = TITRES_PARTAGE[v]; majPartage(); });
+["#pt-notes","#pt-com"].forEach(h=>$(h).addEventListener("change", majPartage));
+$("#pt-titre").addEventListener("input", majPartage);
+$("#pt-fermer").addEventListener("click", ()=>$("#dlg-partage").close());
+$("#pt-texte").addEventListener("click", async ()=>{
+  const t = texteDePartage();
+  try{
+    if(navigator.share){ await navigator.share({title:$("#pt-titre").value, text:t}); return; }
+  }catch(e){ if(e && e.name==="AbortError") return; }
+  try{ await navigator.clipboard.writeText(t); alert("Texte copié : collez-le dans un message."); }
+  catch(e){ alert("Copie impossible : sélectionnez le texte de l'aperçu pour le copier."); }
+});
+$("#pt-page").addEventListener("click", async ()=>{
+  const nom = ($("#pt-titre").value.trim()||"tables").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")+".html";
+  const fichier = new File([pageDePartage()], nom, {type:"text/html"});
+  try{
+    if(navigator.canShare && navigator.canShare({files:[fichier]})){ await navigator.share({files:[fichier], title:$("#pt-titre").value}); return; }
+  }catch(e){ if(e && e.name==="AbortError") return; }
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(fichier); a.download = nom;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
+});
+
 /* ---------- sélection groupée ---------- */
 let selection = null;
 function majSelbar(){
