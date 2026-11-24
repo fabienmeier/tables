@@ -240,7 +240,31 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
 .jgrp ul{list-style:none;margin:0;padding:0}
 .jgrp li{display:flex;gap:10px;font-size:13px;line-height:1.4;padding:2px 0}
 .jgrp li time{flex:0 0 auto;font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--soft);padding-top:2px;min-width:72px}
+.lien{border:0;background:none;padding:0 0 0 8px;font:inherit;font-size:11px;color:var(--garnet);text-decoration:underline;cursor:pointer}
 .jvide{padding:12px 2px;font-size:13px;color:var(--soft)}
+.trous-actions{display:flex;flex-wrap:wrap;gap:8px}
+#trous-filtre{margin-bottom:10px}
+.trou{display:flex;align-items:baseline;gap:10px;width:100%;padding:9px 2px;border:0;border-bottom:1px solid var(--line);background:none;text-align:left;font:inherit;color:inherit;cursor:pointer}
+.trou:last-child{border-bottom:0}
+.trou:hover{background:rgba(25,29,35,.03)}
+.trou .tn{flex:1;min-width:0;font-size:14px}
+.trou .tn small{color:var(--soft);font-size:12px;margin-left:6px}
+.trou .tm{display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end}
+.trou .tm span{font-size:11px;border:1px dashed var(--soft);color:var(--soft);border-radius:999px;padding:1px 8px;white-space:nowrap}
+.selbar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom));z-index:900;
+  display:flex;flex-wrap:wrap;align-items:center;gap:8px;width:min(620px,calc(100% - 24px));padding:10px 12px;
+  background:var(--card);border:1px solid var(--ink);border-radius:var(--r);box-shadow:0 6px 24px rgba(25,29,35,.18)}
+.selbar select{font:inherit;font-size:13px;padding:5px 6px;border:1px solid var(--line);border-radius:var(--r);background:#fff;color:var(--ink);max-width:160px}
+.selnb{font-family:"IBM Plex Mono",monospace;font-size:12px;margin-right:4px}
+body.selection .row{position:relative;padding-left:34px}
+body.selection .wrap{padding-bottom:150px}
+#selmode.on{color:var(--garnet);font-weight:600}
+body.selection .row::before{content:"";position:absolute;left:8px;top:50%;width:16px;height:16px;margin-top:-8px;border:1.5px solid var(--soft);border-radius:3px;background:#fff}
+body.selection .row.sel{background:rgba(110,32,56,.06)}
+body.selection .row.sel::before{background:var(--garnet);border-color:var(--garnet);box-shadow:inset 0 0 0 3px #fff}
+.mapbox{position:relative}
+.map-alerte{position:absolute;left:12px;right:12px;top:12px;z-index:800;background:var(--card);border:1px solid var(--ink);border-radius:var(--r);padding:10px 12px;font-size:13px;color:var(--soft)}
+.map-alerte strong{display:block;color:var(--ink);font-weight:600}
 .cfgrow .used{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--soft);flex:0 0 auto;min-width:16px;text-align:right}
 
 dialog{border:1px solid var(--ink);border-radius:var(--r);padding:0;background:var(--card);color:var(--ink);width:min(620px,94vw);max-height:90vh}
@@ -326,6 +350,7 @@ textarea{resize:vertical;min-height:64px;line-height:1.45}
       <input type="text" id="q" placeholder="Chercher…" aria-label="Recherche">
       <button class="btn" id="togfiltres" aria-expanded="true">Filtres<span class="badge" id="nfiltres" hidden></span></button>
       <button class="btn btn-solid" id="add">+ Nouvelle table</button>
+      <button class="btn btn-quiet" id="selmode" hidden>Sélection</button>
       <button class="btn btn-quiet" id="csv">CSV</button>
     </div>
 
@@ -388,7 +413,8 @@ textarea{resize:vertical;min-height:64px;line-height:1.45}
     <div class="filters">
       <div class="fg"><span class="fl">Afficher</span><div class="chips" id="m-filtre" data-value="tout"></div></div>
     </div>
-    <div id="map"></div>
+    <div class="mapbox"><div id="map"></div>
+      <div class="map-alerte" id="map-alerte" hidden><strong>Fond de carte indisponible</strong>Pas de connexion, ou le serveur de cartes ne répond pas. Les repères restent cliquables ; réessayez plus tard.</div></div>
     <p class="maphint" id="maphint"></p>
   </section>
 
@@ -399,6 +425,27 @@ textarea{resize:vertical;min-height:64px;line-height:1.45}
       <h2>Note contre ticket</h2>
       <p class="sub" id="plot-sub">Chaque table faite selon ce qu'elle a coûté, échelle logarithmique. La ligne relie la moyenne de chaque tranche de prix ; la bande grisée signale la tranche la moins convaincante.</p>
       <svg class="plot" id="plot" viewBox="0 0 720 340" role="img" aria-label="Note par ticket moyen"></svg>
+    </div>
+
+    <div class="panel">
+      <h2>Moyenne par style</h2>
+      <p class="sub">La note moyenne de chaque famille. Le nombre de tables est entre parenthèses ; en dessous de trois, la barre est pâlie : la moyenne tient à trop peu de repas pour être fiable.</p>
+      <svg class="plot" id="plotstyle" viewBox="0 0 720 300" role="img" aria-label="Note moyenne par style"></svg>
+    </div>
+
+    <div class="panel">
+      <h2>Au-dessus de leur prix</h2>
+      <p class="sub" id="valeur-sub">Chaque table comparée à la moyenne de sa tranche de prix : l'écart dit si elle vaut plus ou moins que ce qu'elle coûte, chez vous. Seules les tranches d'au moins trois tables servent de référence.</p>
+      <div class="podiums">
+        <div class="pod"><h3>Les bonnes affaires</h3><div class="top" id="val-haut"></div></div>
+        <div class="pod"><h3>Trop chères pour ce qu'elles sont</h3><div class="top" id="val-bas"></div></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Évolution des notes</h2>
+      <p class="sub" id="evol-sub">Chaque repas daté, passages multiples compris. La ligne suit la moyenne glissante des cinq derniers repas.</p>
+      <svg class="plot" id="plotevol" viewBox="0 0 720 300" role="img" aria-label="Évolution des notes dans le temps"></svg>
     </div>
 
     <div class="panel">
@@ -433,6 +480,16 @@ textarea{resize:vertical;min-height:64px;line-height:1.45}
       <button class="btn btn-sm" id="add-style">+ Ajouter un style</button>
     </div>
     <div class="panel">
+      <h2>Fiches à compléter</h2>
+      <p class="sub">Ce qui manque sur vos fiches, les plus lacunaires d'abord. Touchez une table pour ouvrir sa fiche. Le commentaire n'est signalé que sur les tables faites.</p>
+      <div class="chips" id="trous-filtre" data-value=""></div>
+      <div class="jlist" id="trous"></div>
+      <div class="trous-actions">
+        <button class="btn btn-sm" id="trous-plus" hidden>Tout afficher</button>
+        <button class="btn btn-sm" id="maj-noms" hidden></button>
+      </div>
+    </div>
+    <div class="panel">
       <h2>Point de départ</h2>
       <p class="sub">La commune d'où sont mesurées les distances du sélecteur « On va où ? ». Saisissez un nom de commune : les coordonnées sont retrouvées automatiquement.</p>
       <div class="grid">
@@ -464,6 +521,15 @@ textarea{resize:vertical;min-height:64px;line-height:1.45}
     <span class="chiffres" id="foot-chiffres"></span>
     <span class="chiffres" id="foot-version"></span>
   </footer>
+</div>
+
+<div class="selbar" id="selbar" hidden>
+  <span class="selnb" id="selnb">0 sélectionnée</span>
+  <button class="btn btn-sm btn-quiet" id="sel-tout">Tout</button>
+  <select id="sel-style" aria-label="Changer le style"><option value="">Style…</option></select>
+  <select id="sel-statut" aria-label="Changer le statut"><option value="">Statut…</option><option value="faite">Faite</option><option value="afaire">À faire</option></select>
+  <select id="sel-envie" aria-label="Changer l'envie"><option value="">Envie…</option><option value="1">Un jour</option><option value="2">Volontiers</option><option value="3">Au plus vite</option></select>
+  <button class="btn btn-sm" id="sel-fin">Terminer</button>
 </div>
 
 <dialog id="sheet">
@@ -1879,8 +1945,13 @@ const CRITERES = [{k:"cuisine",l:"Cuisine"},{k:"cadre",l:"Cadre"},{k:"service",l
 /* ---------- version de l'application ----------
    À incrémenter à chaque évolution du code, avec une ligne dans le journal des versions.
    Distinct de REV, la révision des données, qui avance seule à chaque publication. */
-const APP_VERSION = "1.2";
+const APP_VERSION = "1.3";
 const VERSIONS = [
+  {v:"1.3", d:"2026-11-24", m:["Réglages : fiches à compléter, avec mise en majuscule des noms en un geste",
+     "Statistiques : moyenne par style, tables au-dessus ou en dessous de leur tranche de prix, évolution des notes",
+     "Liste : mode sélection pour changer le style, le statut ou l'envie de plusieurs tables d'un coup",
+     "Journal : retour à une révision publiée précédente",
+     "Carte : message clair quand le fond de carte ne se charge pas"]},
   {v:"1.2", d:"2026-11-24", m:["Publication protégée : si les données ont été publiées depuis un autre appareil, rien n'est écrasé sans votre accord",
      "Au démarrage, l'appli récupère la dernière révision publiée, même si la page GitHub n'est pas encore à jour",
      "Les modifications en attente sont gardées sur l'appareil jusqu'à la publication, même si l'appli est fermée",
@@ -2227,7 +2298,7 @@ function updateCounts(){
 function renderList(){
   const rows=visible();
   $("#list").innerHTML = rows.length ? rows.map(r=>`
-    <button class="row" data-id="${r.id}">
+    <button class="row${selection&&selection.has(r.id)?" sel":""}" data-id="${r.id}">
       <span class="c-nom"><span class="name">${esc(r.nom)}${FLAG(r)}${VIO(r)}</span><br><span class="place">${esc(r.commune)||"—"}${r.format?" · "+esc(r.format):""}</span></span>
       <span class="c-style"><span class="tag">${esc(r.style)}</span><span class="gamme">${esc(r.gamme)}</span></span>
       <span class="c-dist ${r.distinction==="—"?"none":""}">${esc(r.distinction)}</span>
@@ -2245,6 +2316,7 @@ function renderList(){
   $("#boussole").hidden = !enAttente;
   $("#revisites").hidden = !enAttente;
   if(enAttente) renderRevisites();
+  majSelbar();
 }
 
 /* ---------- on va où ? ---------- */
@@ -2379,7 +2451,11 @@ $("#rev-liste").addEventListener("click", e=>{
 function initMap(){
   if(map || typeof L==="undefined") return;
   map = L.map("map",{scrollWheelZoom:false}).setView([centre.la,centre.lo],9);
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:18,attribution:"© OpenStreetMap"}).addTo(map);
+  const tuiles = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:18,attribution:"© OpenStreetMap"}).addTo(map);
+  /* fond de carte injoignable (hors connexion, serveur saturé) : on le dit, les repères restent utilisables */
+  let tuilesOk=0, tuilesKo=0;
+  tuiles.on("tileload", ()=>{ tuilesOk++; $("#map-alerte").hidden=true; });
+  tuiles.on("tileerror", ()=>{ tuilesKo++; if(!tuilesOk && tuilesKo>=3) $("#map-alerte").hidden=false; });
   layer = L.layerGroup().addTo(map);
   map.on("moveend", ()=>{ const c=map.getCenter(); centre={la:c.lat, lo:c.lng}; });
   map.on("zoomend", majDetail);
@@ -2391,7 +2467,12 @@ function majDetail(){
 }
 function renderMap(cadrer){
   if(cadrer===undefined) cadrer=true;
-  if(typeof L==="undefined"){ $("#map").innerHTML='<div class="empty"><strong>Carte indisponible</strong>Leaflet ne s\'est pas chargé. Vérifiez la connexion.</div>'; return; }
+  if(typeof L==="undefined"){
+    $("#map").innerHTML='<div class="empty"><strong>Carte indisponible</strong>Le module de carte ne s\'est pas chargé, sans doute faute de connexion. La liste et les statistiques restent accessibles ; rouvrez l\'onglet une fois le réseau revenu.</div>';
+    const f=chipValue("#m-filtre"); const n=RESTOS.filter(r=>f==="tout"||r.statut===f).length;
+    $("#maphint").textContent = n+" table"+(n>1?"s":"")+" à afficher dès que la carte sera disponible.";
+    return;
+  }
   initMap();
   layer.clearLayers();
   const f=chipValue("#m-filtre");
@@ -2560,10 +2641,20 @@ function plotPrix(done){
 
 /* ---------- barres : moyenne par distinction ---------- */
 function plotDistinction(done){
-  const svg = $("#plotdist");
   const cats = DISTINCTIONS.map(d=>({d, l:d==="—"?"Sans distinction":d, s:done.filter(r=>r.distinction===d)}))
                            .filter(c=>c.s.length)
                            .map(c=>({...c, m:avg(c.s.map(r=>r.note))}));
+  plotBarres($("#plotdist"), cats);
+}
+/* ---------- barres : moyenne par style, de la mieux notée à la moins bien ---------- */
+function plotStyle(done){
+  const cats = STYLES.map(st=>({l:st, s:done.filter(r=>r.style===st)}))
+                     .filter(c=>c.s.length)
+                     .map(c=>({...c, m:avg(c.s.map(r=>r.note)), pale:c.s.length<3}))
+                     .sort((a,b)=>b.m-a.m || b.s.length-a.s.length);
+  plotBarres($("#plotstyle"), cats);
+}
+function plotBarres(svg, cats){
   if(!cats.length){ svg.innerHTML=""; return; }
   const W=720, Lm=168, Rm=46, T=14, hL=32, H=T+cats.length*hL+30;
   const bx = v => Lm + v/10*(W-Lm-Rm);
@@ -2574,12 +2665,74 @@ function plotDistinction(done){
   cats.forEach((c,i)=>{
     const y = T+i*hL+6, h = 19;
     g += `<text x="${Lm-12}" y="${y+14}" text-anchor="end" font-family="IBM Plex Sans" font-size="12.5" fill="#191D23">${esc(c.l)} <tspan fill="#5A6068" font-family="IBM Plex Mono" font-size="11">(${c.s.length})</tspan></text>`
-       + `<rect x="${Lm}" y="${y}" width="${Math.max(bx(c.m)-Lm,1)}" height="${h}" fill="#6E2038" fill-opacity="${(.28+c.m/22).toFixed(2)}" stroke="#6E2038" stroke-width="1"><title>${esc(c.l)} — ${c.m.toFixed(1)}/10 sur ${c.s.length} table${c.s.length>1?"s":""}</title></rect>`
+       + `<rect x="${Lm}" y="${y}" width="${Math.max(bx(c.m)-Lm,1)}" height="${h}" fill="#6E2038" fill-opacity="${c.pale?".08":(.28+c.m/22).toFixed(2)}" stroke="#6E2038" stroke-width="1" ${c.pale?'stroke-dasharray="3 3"':""}><title>${esc(c.l)} — ${c.m.toFixed(1)}/10 sur ${c.s.length} table${c.s.length>1?"s":""}</title></rect>`
        + `<text x="${bx(c.m)+8}" y="${y+14}" font-family="IBM Plex Mono" font-size="12" fill="#191D23">${c.m.toFixed(1).replace(".",",")}</text>`;
   });
   g += `<line x1="${Lm}" y1="${T-4}" x2="${Lm}" y2="${T+cats.length*hL}" stroke="#191D23"/>`;
   svg.setAttribute("viewBox",`0 0 ${W} ${H}`);
   svg.innerHTML = g;
+}
+
+/* ---------- rapport note / prix : écart à la moyenne de sa tranche ---------- */
+const virgule = (x,d=1) => x.toFixed(d).replace(".",",");
+function renderValeur(done){
+  const tranches = BORNES.slice(0,-1).map((b,i)=>{
+    const s = done.filter(r=>r.prix>=b && r.prix<BORNES[i+1]);
+    return {i, b, h:BORNES[i+1], n:s.length, m:avg(s.map(r=>r.note))};
+  });
+  const ecartsV = done.filter(r=>r.prix>0).map(r=>{
+    const t = tranches.find(t=>r.prix>=t.b && r.prix<t.h);
+    return t && t.n>=3 ? {r, e:r.note-t.m, t} : null;
+  }).filter(Boolean);
+  const ligne = x => `<div><span class="t">${esc(x.r.nom)}${FLAG(x.r)} <span style="color:var(--soft)">· ${x.r.prix} € · ${x.r.note}/10</span></span>`
+    + `<span class="v">${x.e>0?"+":""}${virgule(x.e)}</span></div>`;
+  const haut = ecartsV.filter(x=>x.e>0).sort((a,b)=>b.e-a.e).slice(0,5);
+  const bas  = ecartsV.filter(x=>x.e<0).sort((a,b)=>a.e-b.e).slice(0,5);
+  const vide = '<div><span class="t" style="color:var(--soft)">Pas encore assez de tickets renseignés.</span></div>';
+  $("#val-haut").innerHTML = haut.length ? haut.map(ligne).join("") : vide;
+  $("#val-bas").innerHTML  = bas.length  ? bas.map(ligne).join("")  : vide;
+}
+
+/* ---------- évolution : chaque repas daté, moyenne glissante sur cinq ---------- */
+function plotEvolution(){
+  const svg = $("#plotevol");
+  const pts = [];
+  RESTOS.filter(r=>r.statut==="faite").forEach(r=>visitesDe(r).forEach(v=>{
+    if(v.date && v.note!=null) pts.push({nom:r.nom, t:new Date(v.date+"T12:00").getTime(), d:v.date, note:v.note});
+  }));
+  pts.sort((a,b)=>a.t-b.t);
+  if(pts.length<4){ svg.innerHTML=messagePlot("Datez au moins quatre repas pour voir la courbe."); return; }
+  const W=720,H=300,Lm=46,Rm=22,T=18,B=46;
+  const t0=pts[0].t, t1=pts[pts.length-1].t, marge=Math.max((t1-t0)*.04, 15*864e5);
+  const a=t0-marge, z=t1+marge;
+  const px = t => Lm + (t-a)/(z-a)*(W-Lm-Rm);
+  const py = v => T + (10-v)/10*(H-T-B);
+  let g="";
+  for(let n=0;n<=10;n+=2)
+    g += `<line x1="${Lm}" y1="${py(n)}" x2="${W-Rm}" y2="${py(n)}" stroke="#CDCEC5"/>`
+       + `<text x="${Lm-9}" y="${py(n)+4}" text-anchor="end" font-family="IBM Plex Mono" font-size="11" fill="#5A6068">${n}</text>`;
+  /* graduations : par année si la période dépasse deux ans, sinon par trimestre */
+  const debut=new Date(a), pasMois = (z-a) > 2*365*864e5 ? 12 : 3;
+  let c = new Date(debut.getFullYear(), Math.ceil(debut.getMonth()/pasMois)*pasMois, 1);
+  const MOIS_C=["janv.","févr.","mars","avr.","mai","juin","juil.","août","sept.","oct.","nov.","déc."];
+  while(c.getTime()<=z){
+    const x=px(c.getTime());
+    g += `<line x1="${x}" y1="${T}" x2="${x}" y2="${py(0)}" stroke="#CDCEC5" stroke-dasharray="2 4"/>`
+       + `<text x="${x}" y="${H-22}" text-anchor="middle" font-family="IBM Plex Mono" font-size="10.5" fill="#5A6068">${pasMois===12?c.getFullYear():MOIS_C[c.getMonth()]+" "+String(c.getFullYear()).slice(2)}</text>`;
+    c = new Date(c.getFullYear(), c.getMonth()+pasMois, 1);
+  }
+  g += `<line x1="${Lm}" y1="${py(0)}" x2="${W-Rm}" y2="${py(0)}" stroke="#191D23"/>`;
+  const glisse = pts.map((p,i)=>{ const f=pts.slice(Math.max(0,i-4), i+1); return `${px(p.t)},${py(avg(f.map(x=>x.note)))}`; });
+  g += `<polyline points="${glisse.join(" ")}" fill="none" stroke="#6E2038" stroke-width="2" opacity=".75"/>`;
+  pts.forEach(p=>{
+    g += `<circle cx="${px(p.t)}" cy="${py(p.note)}" r="5" fill="#6E2038" fill-opacity="${(.15+p.note/20).toFixed(2)}" stroke="#6E2038" stroke-width="1">`
+       + `<title>${esc(p.nom)} — ${p.note}/10 · ${jourFr(p.d)}</title></circle>`;
+  });
+  svg.setAttribute("viewBox",`0 0 ${W} ${H}`);
+  svg.innerHTML = g;
+  const recents = pts.slice(-5), anciens = pts.slice(0,-5);
+  $("#evol-sub").innerHTML = "Chaque repas daté, passages multiples compris. La ligne suit la moyenne glissante des cinq derniers repas."
+    + (anciens.length>=3 ? ` Vos cinq derniers repas : <b>${virgule(avg(recents.map(p=>p.note)))}/10</b>, contre ${virgule(avg(anciens.map(p=>p.note)))} avant.` : "");
 }
 
 function renderStats(){
@@ -2588,7 +2741,7 @@ function renderStats(){
   const vio = RESTOS.filter(r=>r.violette);
   const vioMoy = avg(vio.filter(r=>r.note!=null).map(r=>r.note));
   const best = STYLES.map(s=>({s,n:done.filter(r=>r.style===s).length,m:avg(done.filter(r=>r.style===s).map(r=>r.note))}))
-                     .filter(x=>x.n).sort((a,b)=>b.m-a.m)[0];
+                     .filter(x=>x.n>=2).sort((a,b)=>b.m-a.m)[0];
   $("#kpis").innerHTML = `
     <div class="kpi"><div class="k">Tables faites</div><div class="v">${done.length}</div></div>
     <div class="kpi"><div class="k">Note moyenne</div><div class="v">${moy!=null?moy.toFixed(1):"—"}<small> / 10</small></div></div>
@@ -2597,6 +2750,9 @@ function renderStats(){
     <div class="kpi"><div class="k">Bonus violette</div><div class="v">${vio.length}${vioMoy!=null?`<small> · ${vioMoy.toFixed(1)}/10</small>`:""}</div></div>`;
 
   plotPrix(done);
+  plotStyle(done);
+  renderValeur(done);
+  plotEvolution();
   plotDistinction(done);
 
   renderPodiums();
@@ -2606,6 +2762,53 @@ function renderStats(){
 }
 
 /* ---------- réglages ---------- */
+/* ---------- fiches à compléter ---------- */
+const TROUS = [
+  {k:"commune",  l:"commune",     t:r=>!r.commune || /,|\d/.test(r.commune)},
+  {k:"position", l:"position",    t:r=>r.la==null || r.lo==null},
+  {k:"date",     l:"date",        t:r=>r.statut==="faite" && !r.date},
+  {k:"note",     l:"note",        t:r=>r.statut==="faite" && r.note==null},
+  {k:"prix",     l:"ticket",      t:r=>r.statut==="faite" && !(r.prix>0)},
+  {k:"format",   l:"format",      t:r=>r.statut==="faite" && !r.format},
+  {k:"crit",     l:"critères",    t:r=>r.statut==="faite" && (!r.crit || Object.keys(r.crit).length<CRITERES.length)},
+  {k:"com",      l:"commentaire", t:r=>r.statut==="faite" && !r.com},
+  {k:"nom",      l:"majuscule",   t:r=>/^\p{Ll}\p{L}*['’ ]/u.test(r.nom||"")}
+];
+let trousTout=false;
+const majuscule = n => n.charAt(0).toLocaleUpperCase("fr-FR") + n.slice(1);
+function renderTrous(){
+  const f = chipValue("#trous-filtre");
+  const liste = RESTOS.map(r=>({r, m:TROUS.filter(t=>t.t(r))}))
+    .filter(x=>x.m.length && (!f || x.m.some(t=>t.k===f)))
+    .sort((a,b)=>b.m.length-a.m.length || a.r.nom.localeCompare(b.r.nom,"fr"));
+  const vus = trousTout ? liste : liste.slice(0,15);
+  $("#trous").innerHTML = vus.length ? vus.map(x=>`<button type="button" class="trou" data-id="${x.r.id}">
+      <span class="tn">${esc(x.r.nom)}<small>${esc(x.r.commune||"")}${x.r.statut==="afaire"?" · à faire":""}</small></span>
+      <span class="tm">${x.m.map(t=>`<span>${t.l}</span>`).join("")}</span></button>`).join("")
+    : '<div class="jvide">Rien à signaler : toutes les fiches sont complètes.</div>';
+  $("#trous-plus").hidden = trousTout || liste.length<=15;
+  $("#trous-plus").textContent = "Tout afficher ("+liste.length+")";
+  const minus = RESTOS.filter(r=>/^\p{Ll}\p{L}*['’ ]/u.test(r.nom||""));
+  $("#maj-noms").hidden = !minus.length;
+  $("#maj-noms").textContent = "Mettre une majuscule à "+minus.length+" nom"+(minus.length>1?"s":"");
+}
+function initTrous(){
+  const compte = k => RESTOS.filter(r=>TROUS.find(t=>t.k===k).t(r)).length;
+  chips("#trous-filtre", [{v:"",l:"Tout"}].concat(TROUS.map(t=>({v:t.k, l:t.l+" ("+compte(t.k)+")"})).filter(o=>!o.l.endsWith("(0)"))),
+    {value:chipValue("#trous-filtre")||""});
+  const f=chipValue("#trous-filtre");
+  if(f && !$(`#trous-filtre [data-v="${f}"]`)) chips("#trous-filtre", [], {value:""}), initTrous();
+}
+$("#trous").addEventListener("click", e=>{ const b=e.target.closest(".trou"); if(b) openSheet(+b.dataset.id); });
+$("#trous-plus").addEventListener("click", ()=>{ trousTout=true; renderTrous(); });
+$("#maj-noms").addEventListener("click", ()=>{
+  const minus = RESTOS.filter(r=>/^\p{Ll}\p{L}*['’ ]/u.test(r.nom||""));
+  if(!minus.length || !canEdit()) return;
+  minus.forEach(r=>r.nom=majuscule(r.nom));
+  touch("Majuscule ajoutée à "+minus.length+" nom"+(minus.length>1?"s":"")+" : "+minus.map(r=>r.nom).join(", "));
+  render();
+});
+
 /* ---------- version et journal ---------- */
 const quand = d => d ? d.slice(8,10)+"/"+d.slice(5,7)+"/"+d.slice(0,4)+(d.length>10?" à "+d.slice(11,16):"") : "";
 let journalTout = false;
@@ -2626,16 +2829,48 @@ function renderJournal(){
   $("#journal").innerHTML = groupes.length ? groupes.map(g=>{
     const titre = g.rev==null ? "En attente de publication"
       : "Révision "+g.rev+(g.rev===REV.n && REV.date ? " · publiée le "+quand(REV.date) : "");
-    return `<div class="jgrp${g.rev==null?" att":""}"><h4>${esc(titre)}</h4><ul>${
+    const retour = g.rev!=null && g.rev>=2 && g.rev<(REV.n||0)
+      ? ` <button type="button" class="lien" data-retour="${g.rev}">revenir à cette révision</button>` : "";
+    return `<div class="jgrp${g.rev==null?" att":""}"><h4>${esc(titre)}${retour}</h4><ul>${
       g.items.map(x=>`<li><time>${esc(quand(x.d).replace(" à "," "))}</time><span>${esc(x.m)}</span></li>`).join("")
     }</ul></div>`;
   }).join("") : '<div class="jvide">Rien de noté pour l\'instant.</div>';
   $("#journal-plus").hidden = journalTout || JOURNAL.length<=40;
 }
 $("#journal-plus").addEventListener("click", ()=>{ journalTout=true; renderJournal(); });
+/* revenir à une révision : on relit le fichier tel qu'il était à cette publication,
+   et ses tables deviennent des modifications en attente. Rien n'est publié tant que
+   vous ne cliquez pas sur Publier : on peut encore changer d'avis. */
+$("#journal").addEventListener("click", async e=>{
+  const b = e.target.closest("[data-retour]"); if(!b || !canEdit()) return;
+  const n = +b.dataset.retour;
+  if(!confirm(`Revenir aux tables telles qu'elles étaient à la révision ${n} ?\n\n`
+    + `Les modifications faites depuis seront annulées. Rien n'est publié avant que vous cliquiez sur Publier.`)) return;
+  b.textContent="recherche…"; b.disabled=true;
+  try{
+    const base = `https://api.github.com/repos/${CFG.user}/${CFG.repo}`;
+    const commits = await fetch(`${base}/commits?path=${encodeURIComponent(CFG.file)}&per_page=100`,{headers:entetes(),cache:"no-store"})
+      .then(r=>{ if(!r.ok) throw new Error("historique : HTTP "+r.status); return r.json(); });
+    const c = commits.find(x=>(x.commit.message||"").trim()==="Carnet de tables · révision "+n);
+    if(!c) throw new Error("la publication n° "+n+" est introuvable dans l'historique du dépôt");
+    const meta = await fetch(`${base}/contents/${CFG.file}?ref=${c.sha}`,{headers:entetes(),cache:"no-store"})
+      .then(r=>{ if(!r.ok) throw new Error("lecture : HTTP "+r.status); return r.json(); });
+    const html = new TextDecoder("utf-8").decode(Uint8Array.from(atob(meta.content.replace(/\n/g,"")), ch=>ch.charCodeAt(0)));
+    const d = donneesDe(html);
+    if(!d) throw new Error("données illisibles dans cette version");
+    STYLES = d.STYLES; RESTOS = d.RESTOS;
+    initFiltres();
+    touch("Retour à la révision "+n+" ("+RESTOS.length+" tables)");
+    render();
+  }catch(err){
+    alert("Retour impossible.\n"+err.message);
+    renderJournal();
+  }
+});
 
 function renderReglages(){
   renderJournal();
+  initTrous(); renderTrous();
   $("#cfg-styles").innerHTML = STYLES.map((v,i)=>{
     const used = RESTOS.filter(r=>r.style===v).length;
     return `<div class="cfgrow" data-i="${i}">
@@ -3087,6 +3322,7 @@ function selectTab(name){
   $("#view-stats").hidden    = name!=="stats";
   $("#view-reglages").hidden = name!=="reglages";
   render();
+  majSelbar();
 }
 $$(".tab").forEach(b=>b.addEventListener("click", ()=>selectTab(b.dataset.tab)));
 $$(".head button").forEach(b=>b.addEventListener("click", ()=>{
@@ -3094,7 +3330,49 @@ $$(".head button").forEach(b=>b.addEventListener("click", ()=>{
   if(sortKey===k) sortDir*=-1; else { sortKey=k; sortDir = k==="nom"?1:-1; }
   renderList();
 }));
-$("#list").addEventListener("click", e=>{ const r=e.target.closest(".row"); if(r) openSheet(+r.dataset.id); });
+$("#list").addEventListener("click", e=>{
+  const r=e.target.closest(".row"); if(!r) return;
+  if(selection){ const id=+r.dataset.id; selection.has(id)?selection.delete(id):selection.add(id); r.classList.toggle("sel"); majSelbar(); return; }
+  openSheet(+r.dataset.id);
+});
+/* ---------- sélection groupée ---------- */
+let selection = null;
+function majSelbar(){
+  const on = !!selection && (tab==="faites"||tab==="afaire");
+  document.body.classList.toggle("selection", on);
+  $("#selbar").hidden = !on;
+  $("#selmode").hidden = !canEdit();
+  $("#selmode").classList.toggle("on", !!selection);
+  if(!on) return;
+  const n = selection.size;
+  $("#selnb").textContent = n+" sélectionnée"+(n>1?"s":"");
+  $("#sel-style").innerHTML = '<option value="">Style…</option>'+STYLES.map(x=>`<option>${esc(x)}</option>`).join("");
+  ["#sel-style","#sel-statut","#sel-envie"].forEach(h=>$(h).disabled=!n);
+}
+$("#selmode").addEventListener("click", ()=>{ selection = selection ? null : new Set(); renderList(); });
+$("#sel-fin").addEventListener("click", ()=>{ selection=null; renderList(); });
+$("#sel-tout").addEventListener("click", ()=>{
+  const ids = visible().map(r=>r.id);
+  const tous = ids.every(id=>selection.has(id));
+  ids.forEach(id=> tous ? selection.delete(id) : selection.add(id));
+  renderList();
+});
+function appliquerGroupe(champ, valeur, libelle){
+  if(!selection || !selection.size || !valeur || !canEdit()) return;
+  const cibles = RESTOS.filter(r=>selection.has(r.id));
+  cibles.forEach(r=>{
+    if(champ==="statut"){ r.statut=valeur; if(valeur==="faite") delete r.envie; else if(!r.envie) r.envie=2; }
+    else if(champ==="envie"){ if(r.statut==="afaire") r.envie=+valeur; }
+    else r[champ]=valeur;
+  });
+  const noms = cibles.map(r=>r.nom);
+  touch("Modification groupée, "+libelle+" : "+(noms.length>4 ? noms.slice(0,4).join(", ")+" et "+(noms.length-4)+" autres" : noms.join(", ")));
+  if(champ==="statut") selection.clear();   // les tables changent d'onglet
+  render();
+}
+$("#sel-style").addEventListener("change", e=>{ const v=e.target.value; e.target.value=""; appliquerGroupe("style", v, "style → "+v); });
+$("#sel-statut").addEventListener("change", e=>{ const v=e.target.value; e.target.value=""; appliquerGroupe("statut", v, "statut → "+(v==="afaire"?"à faire":"faite")); });
+$("#sel-envie").addEventListener("change", e=>{ const v=e.target.value; e.target.value=""; appliquerGroupe("envie", v, "envie → "+ENVIE_LAB[v]); });
 $("#q").addEventListener("input", renderList);
 $("#add").addEventListener("click", ()=>openSheet(null));
 document.addEventListener("keydown", e=>{
@@ -3128,6 +3406,7 @@ onChips("#m-filtre", ()=>renderMap(true));
 const relancer = () => { if($("#b-props").innerHTML.trim()) proposer(); };
 ["#b-rayon","#b-gamme","#b-envie"].forEach(h=>onChips(h, relancer));
 onChips("#f-statut", majChampEnvie);
+onChips("#trous-filtre", ()=>{ trousTout=false; renderTrous(); });
 onChips("#fr-gamme", ()=>{ gammeManuelle=true; majAssistGamme(); });
 ["#fr-style","#fr-distinction","#fr-violette","#fr-envie"].forEach(h=>onChips(h, ()=>{}));
 $("#tri").addEventListener("change", ()=>{
