@@ -1879,8 +1879,12 @@ const CRITERES = [{k:"cuisine",l:"Cuisine"},{k:"cadre",l:"Cadre"},{k:"service",l
 /* ---------- version de l'application ----------
    À incrémenter à chaque évolution du code, avec une ligne dans le journal des versions.
    Distinct de REV, la révision des données, qui avance seule à chaque publication. */
-const APP_VERSION = "1.1";
+const APP_VERSION = "1.2";
 const VERSIONS = [
+  {v:"1.2", d:"2026-11-24", m:["Publication protégée : si les données ont été publiées depuis un autre appareil, rien n'est écrasé sans votre accord",
+     "Au démarrage, l'appli récupère la dernière révision publiée, même si la page GitHub n'est pas encore à jour",
+     "Les modifications en attente sont gardées sur l'appareil jusqu'à la publication, même si l'appli est fermée",
+     "Consultation hors connexion ; ce qui est saisi sans réseau se publie au retour de la connexion"]},
   {v:"1.1", d:"2026-11-24", m:["Nouvelle classification des styles : la cuisine plutôt que le standing",
      "Alsacien scindé en « Alsace revisitée » et « Winstub & auberge »",
      "Numéro de version, révision des données et journal des modifications dans Réglages"]},
@@ -1943,6 +1947,11 @@ function renderSync(){
   $("#tab-reglages").hidden = !canEdit();
   $("#add").hidden = !canEdit();
   $("#sync-out").hidden = !canEdit();
+  if(!navigator.onLine && canEdit()){
+    t.textContent = dirty ? dirty+" modification"+(dirty>1?"s":"")+" en attente · hors connexion" : "Hors connexion";
+    m.textContent = "Consultation et saisie possibles ; la publication attendra le réseau.";
+    b.textContent="Publier"; b.disabled=true; return;
+  }
   if(syncing){ t.textContent="Publication en cours…"; m.textContent=""; b.disabled=true; return; }
   b.disabled=false;
   if(!canEdit()){
@@ -1962,14 +1971,14 @@ function renderSync(){
 $("#sync-btn").addEventListener("click", async ()=>{
   if(!canEdit()){
     const t = prompt("Jeton GitHub (portée contents:write) :");
-    if(t && t.trim()){ setToken(t.trim()); dirty=0; render(); }
+    if(t && t.trim()){ setToken(t.trim()); dirty=0; render(); demarrer(); }
     return;
   }
   await push();
 });
 $("#sync-out").addEventListener("click", ()=>{
   if(dirty && !confirm(dirty+" modification(s) non publiée(s) seront perdues. Continuer ?")) return;
-  setToken(null); dirty=0;
+  setToken(null); dirty=0; sauverBrouillon();
   if(tab==="reglages") selectTab("faites"); else render();
 });
 
@@ -1983,6 +1992,48 @@ function serialiser(){
     + "let RESTOS = " + j(RESTOS) + ";\n"
     + M_FIN;
 }
+/* ---------- lecture du fichier distant ---------- */
+const urlFichier = () => `https://api.github.com/repos/${CFG.user}/${CFG.repo}/contents/${CFG.file}`;
+const entetes = () => ({Authorization:"token "+TOKEN, Accept:"application/vnd.github+json"});
+async function lireDistant(){
+  const meta = await fetch(urlFichier(),{headers:entetes(),cache:"no-store"})
+    .then(r=>{ if(!r.ok) throw new Error("lecture du fichier : HTTP "+r.status); return r.json(); });
+  const html = new TextDecoder("utf-8").decode(
+    Uint8Array.from(atob(meta.content.replace(/\n/g,"")), c=>c.charCodeAt(0)));
+  return {meta, html};
+}
+/* extrait les données d'un fichier publié, sans rien exécuter : chaque variable est du JSON pur */
+function donneesDe(html){
+  const i=html.indexOf(M_DEB), k=html.indexOf(M_FIN);
+  if(i<0 || k<0) return null;
+  const bloc = html.slice(i, k);
+  const lire = (nom, defaut) => {
+    const m = bloc.match(new RegExp("let "+nom+" = ([\\s\\S]*?);\\n"));
+    if(!m) return defaut;
+    try{ return JSON.parse(m[1]); }catch(e){ return defaut; }
+  };
+  const d = {CFG:lire("CFG",null), STYLES:lire("STYLES",null), REV:lire("REV",{n:0}),
+             JOURNAL:lire("JOURNAL",[]), RESTOS:lire("RESTOS",null)};
+  return (d.CFG && d.STYLES && d.RESTOS) ? d : null;
+}
+function adopter(d){
+  CFG=d.CFG; STYLES=d.STYLES; REV=d.REV||{n:0}; JOURNAL=d.JOURNAL||[]; RESTOS=d.RESTOS;
+  initFiltres();
+}
+
+/* ---------- brouillon : les modifications en attente survivent à la fermeture ---------- */
+const CLE_BROUILLON = "tables_brouillon";
+function sauverBrouillon(){
+  try{
+    if(!dirty){ localStorage.removeItem(CLE_BROUILLON); return; }
+    localStorage.setItem(CLE_BROUILLON, JSON.stringify({base:REV.n||0, rev:REV, quand:horodatage(), dirty,
+      CFG, STYLES, JOURNAL, RESTOS}));
+  }catch(e){}
+}
+function lireBrouillon(){
+  try{ return JSON.parse(localStorage.getItem(CLE_BROUILLON)||"null"); }catch(e){ return null; }
+}
+
 async function push(){
   if(!canEdit() || syncing) return;
   syncing=true; renderSync();
@@ -1993,20 +2044,35 @@ async function push(){
   enAttente.forEach(x=>x.rev=REV.n);
   if(!enAttente.length) JOURNAL.unshift({d:maintenant, rev:REV.n, m:"Publication sans modification notée"});
   if(JOURNAL.length>JOURNAL_MAX) JOURNAL.length=JOURNAL_MAX;
-  const url=`https://api.github.com/repos/${CFG.user}/${CFG.repo}/contents/${CFG.file}`;
-  const h={Authorization:"token "+TOKEN, Accept:"application/vnd.github+json"};
-  const bloc = serialiser();
+  const url=urlFichier();
+  const h=entetes();
+  let bloc = serialiser();
   const ech = t => t.replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
   const motif = new RegExp(ech(M_DEB) + "[\\s\\S]*?" + ech(M_FIN));
   try{
-    let envoye=false, essai=0;
+    let envoye=false, essai=0, forcer=false;
     while(!envoye && essai<2){
       essai++;
-      const meta = await fetch(url,{headers:h,cache:"no-store"})
-        .then(r=>{ if(!r.ok) throw new Error("lecture du fichier : HTTP "+r.status); return r.json(); });
-      const html = new TextDecoder("utf-8").decode(
-        Uint8Array.from(atob(meta.content.replace(/\n/g,"")), c=>c.charCodeAt(0)));
+      const {meta, html} = await lireDistant();
       if(!motif.test(html)) throw new Error("marqueurs de données introuvables dans le fichier distant");
+      /* garde-fou : quelqu'un a-t-il publié depuis la révision sur laquelle on travaille ? */
+      const distant = donneesDe(html);
+      const revDistante = distant ? (distant.REV.n||0) : 0;
+      if(revDistante > (revAvant.n||0) && !forcer){
+        const qui = distant.REV.date ? " le "+quand(distant.REV.date) : "";
+        if(confirm(`Les données ont été publiées depuis un autre appareil (révision ${revDistante}${qui}).\n\n`
+          + `Publier quand même ? Votre version remplacera la sienne, et ce qui a été fait là-bas sera perdu.\n\n`
+          + `OK : écraser  ·  Annuler : voir les autres choix`)){
+          forcer = true;
+          /* on reprend la numérotation après la révision distante, pour ne jamais redescendre */
+          REV = {n:revDistante+1, date:REV.date};
+          enAttente.forEach(x=>x.rev=REV.n);
+          JOURNAL.unshift({d:horodatage(), rev:REV.n, m:"Publication forcée par-dessus la révision "+revDistante});
+          bloc = serialiser();
+        } else {
+          throw new ConflitAbandon(distant, revDistante);
+        }
+      }
       const out = html.replace(motif, ()=>bloc);   // fonction : neutralise les motifs $ des données
       const bytes = new TextEncoder().encode(out);
       let bin=""; const CH=8192;
@@ -2017,11 +2083,25 @@ async function push(){
       if(!res.ok) throw new Error("écriture : HTTP "+res.status);
       envoye=true;
     }
-    dirty=0; lastSync=new Date().toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"});
+    dirty=0; sauverBrouillon(); lastSync=new Date().toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"});
   }catch(e){
+    const revTentee = REV.n;
     REV = revAvant;
-    JOURNAL = JOURNAL.filter(x=>!(x.rev===REV.n+1 && x.m==="Publication sans modification notée"));
+    JOURNAL = JOURNAL.filter(x=>!(x.rev===revTentee &&
+      (x.m==="Publication sans modification notée" || x.m.startsWith("Publication forcée"))));
     enAttente.forEach(x=>x.rev=null);
+    syncing=false;
+    if(e instanceof ConflitAbandon){
+      if(confirm(`Charger la révision ${e.rev} et abandonner vos ${dirty} modification(s) en attente ?\n\n`
+        + `Annuler : ne rien faire, vos modifications restent en attente sur cet appareil.`)){
+        adopter(e.donnees); dirty=0; sauverBrouillon(); render();
+      } else renderSync();
+      return;
+    }
+    if(!navigator.onLine){
+      alert("Pas de connexion.\n\nVos modifications sont gardées sur cet appareil : publiez dès que le réseau revient.");
+      renderSync(); return;
+    }
     alert("Publication impossible.\n"+e.message+"\n\nVérifiez le jeton et les champs du dépôt dans Réglages.");
   }
   syncing=false; renderSync();
@@ -2029,10 +2109,12 @@ async function push(){
 const horodatage = () => { const d=new Date(), z=n=>String(n).padStart(2,"0");
   return d.getFullYear()+"-"+z(d.getMonth()+1)+"-"+z(d.getDate())+"T"+z(d.getHours())+":"+z(d.getMinutes()); };
 /* chaque modification passe par touch, qui la note au journal (en attente jusqu'à la publication) */
+class ConflitAbandon extends Error{ constructor(d,rev){ super("conflit"); this.donnees=d; this.rev=rev; } }
 const touch = msg => {
   dirty++;
   if(msg) JOURNAL.unshift({d:horodatage(), rev:null, m:msg});
   if(JOURNAL.length>JOURNAL_MAX) JOURNAL.length=JOURNAL_MAX;
+  sauverBrouillon();
   renderSync();
   if(tab==="reglages") renderJournal();
 };
@@ -3024,6 +3106,7 @@ window.addEventListener("beforeunload", e=>{ if(dirty){ e.preventDefault(); e.re
 
 function render(){
   renderSync();
+  $("#foot-version").textContent = "v"+APP_VERSION+" · révision "+(REV.n||0);
   updateCounts();
   if(tab==="stats") renderStats();
   /* on ne recadre qu'à la première ouverture : sinon revenir sur la carte
@@ -3032,7 +3115,6 @@ function render(){
   else if(tab==="reglages") renderReglages();
   else renderList();
 }
-$("#foot-version").textContent = "v"+APP_VERSION+" · révision "+(REV.n||0);
 initFiltres();
 chips("#m-filtre", [{v:"tout",l:"Toutes"},{v:"faite",l:"Faites"},{v:"afaire",l:"À faire"}], {value:"tout"});
 chips("#b-rayon", RAYONS, {value:"30"});
@@ -3057,6 +3139,33 @@ if(window.matchMedia && window.matchMedia("(max-width:700px)").matches){
   $("#togfiltres").setAttribute("aria-expanded","false");
 }
 render();
+
+/* ---------- démarrage : brouillon local, puis dernière révision publiée ---------- */
+async function demarrer(){
+  const br = lireBrouillon();
+  if(br && br.RESTOS){
+    if((br.base||0) >= (REV.n||0) || confirm(
+      `Des modifications non publiées du ${quand(br.quand)} (${br.dirty}) sont gardées sur cet appareil, `
+      + `mais elles partent d'une révision plus ancienne (${br.base}) que celle-ci (${REV.n||0}).\n\n`
+      + `OK : les reprendre (la publication vous demandera confirmation)  ·  Annuler : les abandonner`)){
+      CFG=br.CFG; STYLES=br.STYLES; JOURNAL=br.JOURNAL; RESTOS=br.RESTOS; dirty=br.dirty||1;
+      REV = br.rev || {...REV, n:br.base||0};   // on reste sur la révision d'origine : le garde-fou jouera
+      initFiltres(); render();
+    } else { try{ localStorage.removeItem(CLE_BROUILLON); }catch(e){} }
+  }
+  /* la page servie par GitHub Pages peut avoir quelques minutes de retard sur le dépôt */
+  if(!canEdit() || dirty || !navigator.onLine) return;
+  try{
+    const d = donneesDe((await lireDistant()).html);
+    if(d && (d.REV.n||0) > (REV.n||0) && !dirty){ adopter(d); render(); }
+  }catch(e){}
+}
+demarrer();
+window.addEventListener("online",  renderSync);
+window.addEventListener("offline", renderSync);
+if("serviceWorker" in navigator && location.protocol==="https:"){
+  navigator.serviceWorker.register("sw.js").catch(()=>{});
+}
 </script>
 </body>
 </html>
